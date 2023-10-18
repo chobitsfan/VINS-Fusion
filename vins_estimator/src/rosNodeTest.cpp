@@ -48,6 +48,7 @@ void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
 cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 {
     cv_bridge::CvImageConstPtr ptr;
+    //printf("getImageFromMsg\n");
     if (img_msg->encoding == "8UC1")
     {
         sensor_msgs::Image img;

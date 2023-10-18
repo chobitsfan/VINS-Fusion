@@ -8,6 +8,9 @@
  *******************************************************/
 
 #include "visualization.h"
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 using namespace ros;
 using namespace Eigen;
@@ -31,6 +34,9 @@ static Vector3d last_path(0.0, 0.0, 0.0);
 
 size_t pub_counter = 0;
 
+struct sockaddr_un chobits_addr, chobits_local_addr;
+static int chobits_sock;
+
 void registerPub(ros::NodeHandle &n)
 {
     pub_latest_odometry = n.advertise<nav_msgs::Odometry>("imu_propagate", 1000);
@@ -48,6 +54,16 @@ void registerPub(ros::NodeHandle &n)
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
+
+    memset(&chobits_addr, 0, sizeof(struct sockaddr_un));
+    chobits_addr.sun_family = AF_UNIX;
+    strcpy(chobits_addr.sun_path, "/tmp/chobits_server");
+    memset(&chobits_local_addr, 0, sizeof(struct sockaddr_un));
+    chobits_local_addr.sun_family = AF_UNIX;
+    strcpy(chobits_local_addr.sun_path, "/tmp/chobits_1234");
+    chobits_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+    unlink("/tmp/chobits_1234");
+    bind(chobits_sock, (struct sockaddr*)&chobits_local_addr, sizeof(chobits_local_addr));
 }
 
 void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, const Eigen::Vector3d &V, double t)
@@ -117,31 +133,42 @@ void printStatistics(const Estimator &estimator, double t)
     sum_of_path += (estimator.Ps[WINDOW_SIZE] - last_path).norm();
     last_path = estimator.Ps[WINDOW_SIZE];
     ROS_DEBUG("sum of path %f", sum_of_path);
-    if (ESTIMATE_TD)
-        ROS_INFO("td %f", estimator.td);
+    //if (ESTIMATE_TD) ROS_INFO("td %f", estimator.td);
 }
 
 void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
 {
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
+        double px = estimator.Ps[WINDOW_SIZE].x();
+        double py = estimator.Ps[WINDOW_SIZE].y();
+        double pz = estimator.Ps[WINDOW_SIZE].z();
+        double vx = estimator.Vs[WINDOW_SIZE].x();
+        double vy = estimator.Vs[WINDOW_SIZE].y();
+        double vz = estimator.Vs[WINDOW_SIZE].z();
+
         nav_msgs::Odometry odometry;
         odometry.header = header;
         odometry.header.frame_id = "world";
         odometry.child_frame_id = "world";
         Quaterniond tmp_Q;
         tmp_Q = Quaterniond(estimator.Rs[WINDOW_SIZE]);
-        odometry.pose.pose.position.x = estimator.Ps[WINDOW_SIZE].x();
-        odometry.pose.pose.position.y = estimator.Ps[WINDOW_SIZE].y();
-        odometry.pose.pose.position.z = estimator.Ps[WINDOW_SIZE].z();
+        odometry.pose.pose.position.x = px;
+        odometry.pose.pose.position.y = py;
+        odometry.pose.pose.position.z = pz;
         odometry.pose.pose.orientation.x = tmp_Q.x();
         odometry.pose.pose.orientation.y = tmp_Q.y();
         odometry.pose.pose.orientation.z = tmp_Q.z();
         odometry.pose.pose.orientation.w = tmp_Q.w();
-        odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
-        odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
-        odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
+        odometry.twist.twist.linear.x = vx;
+        odometry.twist.twist.linear.y = vy;
+        odometry.twist.twist.linear.z = vz;
         pub_odometry.publish(odometry);
+
+        static Matrix3d d455_to_mav = (Matrix3d()<<0,-1,0,0,0,-1,1,0,0).finished();
+        Quaterniond aligned_r = Quaterniond(estimator.Rs[WINDOW_SIZE] * d455_to_mav);
+        float chobits_msg[10] = { (float)aligned_r.w(), (float)aligned_r.x(), (float)aligned_r.y(), (float)aligned_r.z(), (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
+        sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
 
         geometry_msgs::PoseStamped pose_stamped;
         pose_stamped.header = header;
@@ -170,8 +197,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
               << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
         foutC.close();
         Eigen::Vector3d tmp_T = estimator.Ps[WINDOW_SIZE];
-        printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(),
-                                                          tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
+        //printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(), tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
     }
 }
 
