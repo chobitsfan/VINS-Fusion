@@ -83,5 +83,9 @@ public:
     bool stereo_cam;
     int n_id;
     bool hasPrediction;
+
     cv::Ptr<cv::cuda::CornersDetector> detector;
+    cv::cuda::GpuMat prev_gpu_img;
+    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse;
+    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse_prediction;
 };
