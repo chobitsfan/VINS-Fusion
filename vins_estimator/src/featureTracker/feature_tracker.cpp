@@ -96,6 +96,7 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
 
 map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
 {
+    static int ccc=0;
     TicToc t_r;
     cur_time = _cur_time;
     cur_img = _img;
@@ -117,7 +118,6 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
 
     if (prev_pts.size() > 0)
     {
-        TicToc t_o;
         vector<uchar> status;
         cv::cuda::GpuMat prev_gpu_pts(prev_pts);
         cv::cuda::GpuMat cur_gpu_pts(cur_pts);
@@ -196,7 +196,6 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         reduceVector(cur_pts, status);
         reduceVector(ids, status);
         reduceVector(track_cnt, status);
-        ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
         //printf("track cnt %d\n", (int)ids.size());
     }
 
@@ -206,30 +205,24 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     if (1)
     {
         //rejectWithF();
-        ROS_DEBUG("set mask begins");
-        TicToc t_m;
         setMask();
-        ROS_DEBUG("set mask costs %fms", t_m.toc());
 
-        ROS_DEBUG("detect feature begins");
-        TicToc t_t;
         int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
         if (n_max_cnt > 0)
         {
-	    cv::cuda::GpuMat gpu_mask(mask);
-	    cv::cuda::GpuMat gpu_n_pts;
-            detector->detect(cur_gpu_img, gpu_n_pts, gpu_mask);
-	    if(!gpu_n_pts.empty()) {
-	        cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(cv::Mat(gpu_n_pts));
-	        for (auto &p : n_pts)
-                {
-                    cur_pts.push_back(p);
-                    ids.push_back(n_id++);
-                    track_cnt.push_back(1);
-                }
-	    }
+            cv::cuda::GpuMat gpu_mask(mask);
+            cv::cuda::GpuMat gpu_n_pts;
+                detector->detect(cur_gpu_img, gpu_n_pts, gpu_mask);
+            if(!gpu_n_pts.empty()) {
+                cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(cv::Mat(gpu_n_pts));
+                for (auto &p : n_pts)
+                    {
+                        cur_pts.push_back(p);
+                        ids.push_back(n_id++);
+                        track_cnt.push_back(1);
+                    }
+            }
         }
-        ROS_DEBUG("detect feature costs: %f ms", t_t.toc());
         //printf("feature cnt after add %d\n", (int)ids.size());
     }
 
@@ -359,8 +352,13 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
         }
     }
+    
+    ccc++;
+    if (ccc>60) {
+        ccc=0;
+        printf("feature track cost %f ms\n", t_r.toc());
+    }
 
-    //printf("feature track whole time %f\n", t_r.toc());
     return featureFrame;
 }
 

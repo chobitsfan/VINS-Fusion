@@ -272,6 +272,7 @@ void Estimator::processMeasurements()
     while (1)
     {
         //printf("process measurments\n");
+        TicToc t_p;
         pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > feature;
         vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
         if(!featureBuf.empty())
@@ -331,6 +332,7 @@ void Estimator::processMeasurements()
             pubKeyframe(*this);
             pubTF(*this, header);
             mProcess.unlock();
+            //printf("process measurement cost %f ms\n", t_p.toc());
         }
 
         if (! MULTIPLE_THREAD)
