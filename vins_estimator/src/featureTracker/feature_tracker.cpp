@@ -50,6 +50,7 @@ FeatureTracker::FeatureTracker()
     stereo_cam = 0;
     n_id = 0;
     hasPrediction = false;
+    detector = cv::cuda::createGoodFeaturesToTrackDetector(CV_8UC1, MAX_CNT/3, 0.01, MIN_DIST);
 }
 
 void FeatureTracker::setMask()
@@ -99,6 +100,9 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     row = cur_img.rows;
     col = cur_img.cols;
     cv::Mat rightImg = _img1;
+
+    cv::cuda::GpuMat cur_gpu_img;
+    cur_gpu_img = cv::cuda::GpuMat(cur_img);
     /*
     {
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
@@ -177,22 +181,20 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
         if (n_max_cnt > 0)
         {
-            if(mask.empty())
-                cout << "mask is empty " << endl;
-            if (mask.type() != CV_8UC1)
-                cout << "mask type wrong " << endl;
-            cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01, MIN_DIST, mask);
+	    cv::cuda::GpuMat gpu_mask(mask);
+	    cv::cuda::GpuMat gpu_n_pts;
+            detector->detect(cur_gpu_img, gpu_n_pts, gpu_mask);
+	    if(!gpu_n_pts.empty()) {
+	        cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(cv::Mat(gpu_n_pts));
+	        for (auto &p : n_pts)
+                {
+                    cur_pts.push_back(p);
+                    ids.push_back(n_id++);
+                    track_cnt.push_back(1);
+                }
+	    }
         }
-        else
-            n_pts.clear();
         ROS_DEBUG("detect feature costs: %f ms", t_t.toc());
-
-        for (auto &p : n_pts)
-        {
-            cur_pts.push_back(p);
-            ids.push_back(n_id++);
-            track_cnt.push_back(1);
-        }
         //printf("feature cnt after add %d\n", (int)ids.size());
     }
 
