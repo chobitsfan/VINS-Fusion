@@ -97,7 +97,7 @@ class FeatureManager
                             Eigen::Vector2d &point0, Eigen::Vector2d &point1, Eigen::Vector3d &point_3d);
     void initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[]);
     bool solvePoseByPnP(Eigen::Matrix3d &R_initial, Eigen::Vector3d &P_initial, 
-                            vector<cv::Point2f> &pts2D, vector<cv::Point3f> &pts3D);
+                            vector<cv::Point2d> &pts2D, vector<cv::Point3d> &pts3D);
     void removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P, Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
     void removeBack();
     void removeFront(int frame_count);

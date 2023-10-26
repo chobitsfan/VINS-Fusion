@@ -20,6 +20,7 @@ ros::Publisher pub_point_cloud, pub_margin_cloud;
 ros::Publisher pub_key_poses;
 ros::Publisher pub_camera_pose;
 ros::Publisher pub_camera_pose_visual;
+ros::Publisher pub_chobits_pose;
 nav_msgs::Path path;
 
 ros::Publisher pub_keyframe_pose;
@@ -51,6 +52,7 @@ void registerPub(ros::NodeHandle &n)
     pub_keyframe_point = n.advertise<sensor_msgs::PointCloud>("keyframe_point", 1000);
     pub_extrinsic = n.advertise<nav_msgs::Odometry>("extrinsic", 1000);
     pub_image_track = n.advertise<sensor_msgs::Image>("image_track", 1000);
+    pub_chobits_pose = n.advertise<geometry_msgs::PoseStamped>("chobits_pose",10);
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
@@ -165,12 +167,24 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         odometry.twist.twist.linear.z = vz;
         pub_odometry.publish(odometry);
 
-        static Matrix3d d455_to_mav = (Matrix3d()<<0,-1,0,0,0,-1,1,0,0).finished();
-        Quaterniond aligned_r = Quaterniond(estimator.Rs[WINDOW_SIZE] * d455_to_mav);
+        //static Matrix3d d455_to_mav = (Matrix3d()<<0,-1,0,0,0,-1,1,0,0).finished();
+        //Quaterniond aligned_r = Quaterniond(estimator.Rs[WINDOW_SIZE] * d455_to_mav);
+        static Matrix3d apm_to_vins = (Matrix3d()<<1,0,0,0,-1,0,0,0,-1).finished();
+        Quaterniond aligned_r = Quaterniond(estimator.Rs[WINDOW_SIZE] * apm_to_vins);
         float chobits_msg[10] = { (float)aligned_r.w(), (float)aligned_r.x(), (float)aligned_r.y(), (float)aligned_r.z(), (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
         sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
-
         geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header = header;
+        pose_stamped.header.frame_id = "world";
+        pose_stamped.pose.position.x = px; 
+    	pose_stamped.pose.position.y = py; 
+    	pose_stamped.pose.position.z = pz;
+        pose_stamped.pose.orientation.x = aligned_r.x();
+        pose_stamped.pose.orientation.y = aligned_r.y();
+        pose_stamped.pose.orientation.z = aligned_r.z();
+        pose_stamped.pose.orientation.w = aligned_r.w();
+    	pub_chobits_pose.publish(pose_stamped);
+
         pose_stamped.header = header;
         pose_stamped.header.frame_id = "world";
         pose_stamped.pose = odometry.pose.pose;
@@ -180,7 +194,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         pub_path.publish(path);
 
         // write result to file
-        ofstream foutC(VINS_RESULT_PATH, ios::app);
+        /*ofstream foutC(VINS_RESULT_PATH, ios::app);
         foutC.setf(ios::fixed, ios::floatfield);
         foutC.precision(0);
         foutC << header.stamp.toSec() * 1e9 << ",";
@@ -197,7 +211,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
               << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
         foutC.close();
         Eigen::Vector3d tmp_T = estimator.Ps[WINDOW_SIZE];
-        //printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(), tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
+        printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(), tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());*/
     }
 }
 

@@ -5,7 +5,7 @@
 imu: 1         
 num_of_cam: 2  
 
-imu_topic: "/camera/imu"
+imu_topic: "/chobits/imu"
 image0_topic: "/camera/infra1/image_rect_raw"
 image1_topic: "/camera/infra2/image_rect_raw"
 output_path: "/home/chobits/Documents"
@@ -24,23 +24,19 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 1., 0.,
-       0., -3.022e-02,
-       0., 1.,
-       0., 7.4e-03,
-       0., 0.,
-       1., 0., 0., 0., 0., 1. ]
+   data: [ 0, 0, 1, 0.1,
+           1, 0, 0, -0.0475,
+           0, 1, 0, 0, 
+           0, 0, 0, 1 ]
 
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 1., 0.,
-       0., 6.473435e-02,
-       0., 1.,
-       0., 7.4e-03,
-       0., 0.,
-       1., 0., 0., 0., 0., 1. ]
+   data: [ 0, 0, 1, 0.1,
+           1, 0, 0, 0.0475,
+           0, 1, 0, 0, 
+           0, 0, 0, 1 ]
 
 #Multiple thread support
 multiple_thread: 1
@@ -66,7 +62,7 @@ gyr_w: 0.0001       # gyroscope bias random work noise standard deviation.     #
 g_norm: 9.805         # gravity magnitude
 
 #unsynchronization parameters
-estimate_td: 0                      # online estimate time offset between camera and imu
+estimate_td: 1                      # online estimate time offset between camera and imu
 td: 0.00                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
 #loop closure parameters

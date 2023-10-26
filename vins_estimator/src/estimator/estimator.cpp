@@ -269,6 +269,7 @@ bool Estimator::IMUAvailable(double t)
 
 void Estimator::processMeasurements()
 {
+    static int ccc=0;
     while (1)
     {
         //printf("process measurments\n");
@@ -319,7 +320,7 @@ void Estimator::processMeasurements()
             processImage(feature.second, feature.first);
             prevTime = curTime;
 
-            printStatistics(*this, 0);
+            //printStatistics(*this, 0);
 
             std_msgs::Header header;
             header.frame_id = "world";
@@ -332,7 +333,12 @@ void Estimator::processMeasurements()
             pubKeyframe(*this);
             pubTF(*this, header);
             mProcess.unlock();
-            //printf("process measurement cost %f ms\n", t_p.toc());
+            
+            ccc++;
+            if (ccc>60) {
+                ccc=0;
+                printf("process measurement cost %f ms, td %d ms\n", t_p.toc(), td);
+            }
         }
 
         if (! MULTIPLE_THREAD)
@@ -1115,7 +1121,8 @@ void Estimator::optimization()
     ceres::Solver::Options options;
 
     options.linear_solver_type = ceres::DENSE_SCHUR;
-    //options.num_threads = 2;
+    //options.dense_linear_algebra_library_type = ceres::CUDA;
+    options.num_threads = 4;
     options.trust_region_strategy_type = ceres::DOGLEG;
     options.max_num_iterations = NUM_ITERATIONS;
     //options.use_explicit_schur_complement = true;

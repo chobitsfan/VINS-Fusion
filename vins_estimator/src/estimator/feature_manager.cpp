@@ -213,7 +213,7 @@ void FeatureManager::triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen:
 
 
 bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P, 
-                                      vector<cv::Point2f> &pts2D, vector<cv::Point3f> &pts3D)
+                                      vector<cv::Point2d> &pts2D, vector<cv::Point3d> &pts3D)
 {
     Eigen::Matrix3d R_initial;
     Eigen::Vector3d P_initial;
@@ -232,16 +232,18 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
     cv::eigen2cv(R_initial, tmp_r);
     cv::Rodrigues(tmp_r, rvec);
     cv::eigen2cv(P_initial, t);
+#if 1
     cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);  
-    bool pnp_succ;
-    pnp_succ = cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
+    cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
     //pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 8.0 / focalLength, 0.99, inliers);
+#else
+    //cuda works very bad
+    cv::Mat K = (cv::Mat_<float>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);  
+    cv::cuda::solvePnPRansac(cv::Mat(pts3D).t(), cv::Mat(pts2D).t(), K, D, rvec, t);
+    rvec = rvec.t();
+    t = t.t();
+#endif
 
-    if(!pnp_succ)
-    {
-        printf("pnp failed ! \n");
-        return false;
-    }
     cv::Rodrigues(rvec, r);
     //cout << "r " << endl << r << endl;
     Eigen::MatrixXd R_pnp;
@@ -261,8 +263,8 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
 
     if(frameCnt > 0)
     {
-        vector<cv::Point2f> pts2D;
-        vector<cv::Point3f> pts3D;
+        vector<cv::Point2d> pts2D;
+        vector<cv::Point3d> pts3D;
         for (auto &it_per_id : feature)
         {
             if (it_per_id.estimated_depth > 0)
@@ -273,8 +275,8 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
                     Vector3d ptsInCam = ric[0] * (it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth) + tic[0];
                     Vector3d ptsInWorld = Rs[it_per_id.start_frame] * ptsInCam + Ps[it_per_id.start_frame];
 
-                    cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
-                    cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(), it_per_id.feature_per_frame[index].point.y());
+                    cv::Point3d point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
+                    cv::Point2d point2d(it_per_id.feature_per_frame[index].point.x(), it_per_id.feature_per_frame[index].point.y());
                     pts3D.push_back(point3d);
                     pts2D.push_back(point2d); 
                 }
