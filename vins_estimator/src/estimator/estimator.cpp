@@ -337,7 +337,7 @@ void Estimator::processMeasurements()
             ccc++;
             if (ccc>60) {
                 ccc=0;
-                printf("process measurement cost %f ms, td %d ms\n", t_p.toc(), td);
+                printf("process measurement cost %f ms, td %f ms\n", t_p.toc(), td);
             }
         }
 
