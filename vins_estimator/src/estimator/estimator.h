@@ -174,4 +174,6 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+
+    bool send_pose_apm = false;
 };

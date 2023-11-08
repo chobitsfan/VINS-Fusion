@@ -192,6 +192,11 @@ void restart_callback(const std_msgs::BoolConstPtr &restart_msg)
     return;
 }
 
+void send_apm_callback(const std_msgs::BoolConstPtr &msg) {
+    ROS_WARN("send pose to apm\n");
+    estimator.send_pose_apm = msg->data;
+}
+
 void imu_switch_callback(const std_msgs::BoolConstPtr &switch_msg)
 {
     if (switch_msg->data == true)
@@ -256,6 +261,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
     ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);
     ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);
+    ros::Subscriber sub_send_apm = n.subscribe("/vins_send_pose_apm", 1, send_apm_callback);
 
     std::thread sync_thread{sync_process};
     ros::spin();

@@ -52,7 +52,7 @@ void registerPub(ros::NodeHandle &n)
     pub_keyframe_point = n.advertise<sensor_msgs::PointCloud>("keyframe_point", 1000);
     pub_extrinsic = n.advertise<nav_msgs::Odometry>("extrinsic", 1000);
     pub_image_track = n.advertise<sensor_msgs::Image>("image_track", 1000);
-    pub_chobits_pose = n.advertise<geometry_msgs::PoseStamped>("chobits_pose",10);
+    //pub_chobits_pose = n.advertise<geometry_msgs::PoseStamped>("chobits_pose",10);
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
@@ -171,9 +171,10 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         //Quaterniond aligned_r = Quaterniond(estimator.Rs[WINDOW_SIZE] * d455_to_mav);
         //static Matrix3d apm_to_vins = (Matrix3d()<<1,0,0,0,-1,0,0,0,-1).finished();
         //Quaterniond aligned_r = Quaterniond(estimator.Rs[WINDOW_SIZE] * apm_to_vins);
-        float chobits_msg[10] = { (float)tmp_Q.w(), (float)tmp_Q.x(), (float)tmp_Q.y(), (float)tmp_Q.z(), (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
-        sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
-        geometry_msgs::PoseStamped pose_stamped;
+        if (estimator.send_pose_apm) { 
+            float chobits_msg[10] = { (float)tmp_Q.w(), (float)tmp_Q.x(), (float)tmp_Q.y(), (float)tmp_Q.z(), (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
+            sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
+        }
         /*pose_stamped.header = header;
         pose_stamped.header.frame_id = "world";
         pose_stamped.pose.position.x = px; 
@@ -185,6 +186,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         pose_stamped.pose.orientation.w = aligned_r.w();
     	pub_chobits_pose.publish(pose_stamped);*/
 
+        geometry_msgs::PoseStamped pose_stamped;
         pose_stamped.header = header;
         pose_stamped.header.frame_id = "world";
         pose_stamped.pose = odometry.pose.pose;
