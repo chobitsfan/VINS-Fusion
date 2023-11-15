@@ -222,7 +222,6 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
     R_initial = R.inverse();
     P_initial = -(R_initial * P);
 
-    //printf("pnp size %d \n",(int)pts2D.size() );
     if (int(pts2D.size()) < 4)
     {
         printf("feature tracking not enough, please slowly move you device! \n");
@@ -234,7 +233,10 @@ bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
     cv::eigen2cv(P_initial, t);
 #if 1
     cv::Mat K = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);  
-    cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1);
+    if (!cv::solvePnP(pts3D, pts2D, K, D, rvec, t, 1)) {
+        printf("pnp failed ! \n");
+        return false;
+    }
     //pnp_succ = solvePnPRansac(pts3D, pts2D, K, D, rvec, t, true, 100, 8.0 / focalLength, 0.99, inliers);
 #else
     //cuda works very bad
