@@ -14,9 +14,12 @@
 #include <map>
 #include <thread>
 #include <mutex>
+#include <time.h>
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
@@ -28,7 +31,6 @@ queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::ImageConstPtr> img0_buf;
 queue<sensor_msgs::ImageConstPtr> img1_buf;
 std::mutex m_buf;
-
 
 void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
 {
@@ -71,64 +73,28 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 // extract images with same timestamp from two topics
 void sync_process()
 {
+    cv::VideoCapture cap;
+    cap.open("/dev/video0", cv::CAP_V4L2);
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('G','R','E','Y'));
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 400);
+    cap.set(cv::CAP_PROP_FPS, 30);
+    cap.set(cv::CAP_PROP_CONVERT_RGB, 0);
+
+    double time = 0;
+    struct timespec ts;
+    cv::Mat frame, img0, img1;
     while(1)
     {
-        if(STEREO)
-        {
-            cv::Mat image0, image1;
-            std_msgs::Header header;
-            double time = 0;
-            m_buf.lock();
-            if (!img0_buf.empty() && !img1_buf.empty())
-            {
-                double time0 = img0_buf.front()->header.stamp.toSec();
-                double time1 = img1_buf.front()->header.stamp.toSec();
-                // 0.003s sync tolerance
-                if(time0 < time1 - 0.003)
-                {
-                    img0_buf.pop();
-                    printf("throw img0\n");
-                }
-                else if(time0 > time1 + 0.003)
-                {
-                    img1_buf.pop();
-                    printf("throw img1\n");
-                }
-                else
-                {
-                    time = img0_buf.front()->header.stamp.toSec();
-                    header = img0_buf.front()->header;
-                    image0 = getImageFromMsg(img0_buf.front());
-                    img0_buf.pop();
-                    image1 = getImageFromMsg(img1_buf.front());
-                    img1_buf.pop();
-                    //printf("find img0 and img1\n");
-                }
-            }
-            m_buf.unlock();
-            if(!image0.empty())
-                estimator.inputImage(time, image0, image1);
+        if (cap.grab()) {
+            clock_gettime(CLOCK_REALTIME, &ts);
+            time = ts.tv_sec + (double)ts.tv_nsec / 1e9;
+            cap.retrieve(frame);
+            img1 = frame.colRange(0, frame.cols / 2);
+            img0 = frame.colRange(frame.cols / 2, frame.cols);
+            if (img0.type() != CV_8UC1) cout << "?????" << img0.type() << "\n";
+            estimator.inputImage(time, img0, img1);
         }
-        else
-        {
-            cv::Mat image;
-            std_msgs::Header header;
-            double time = 0;
-            m_buf.lock();
-            if(!img0_buf.empty())
-            {
-                time = img0_buf.front()->header.stamp.toSec();
-                header = img0_buf.front()->header;
-                image = getImageFromMsg(img0_buf.front());
-                img0_buf.pop();
-            }
-            m_buf.unlock();
-            if(!image.empty())
-                estimator.inputImage(time, image);
-        }
-
-        std::chrono::milliseconds dura(2);
-        std::this_thread::sleep_for(dura);
     }
 }
 
