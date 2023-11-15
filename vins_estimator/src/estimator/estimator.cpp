@@ -270,7 +270,7 @@ bool Estimator::IMUAvailable(double t)
 void Estimator::processMeasurements()
 {
     static int ccc=0;
-    while (1)
+    while (gogogo)
     {
         //printf("process measurments\n");
         TicToc t_p;
@@ -280,7 +280,7 @@ void Estimator::processMeasurements()
         {
             feature = featureBuf.front();
             curTime = feature.first + td;
-            while(1)
+            while (1)
             {
                 if ((!USE_IMU  || IMUAvailable(feature.first + td)))
                     break;
@@ -292,6 +292,7 @@ void Estimator::processMeasurements()
                     std::chrono::milliseconds dura(5);
                     std::this_thread::sleep_for(dura);
                 }
+                if (!gogogo) return;
             }
             mBuf.lock();
             if(USE_IMU)

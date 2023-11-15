@@ -32,6 +32,8 @@ queue<sensor_msgs::ImageConstPtr> img0_buf;
 queue<sensor_msgs::ImageConstPtr> img1_buf;
 std::mutex m_buf;
 
+int gogogo = true;
+
 void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
 {
     m_buf.lock();
@@ -73,27 +75,32 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 // extract images with same timestamp from two topics
 void sync_process()
 {
+    bool init_fps=true;
     cv::VideoCapture cap;
     cap.open("/dev/video0", cv::CAP_V4L2);
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('G','R','E','Y'));
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 400);
-    cap.set(cv::CAP_PROP_FPS, 30);
+    //cap.set(cv::CAP_PROP_FPS, 30);
     cap.set(cv::CAP_PROP_CONVERT_RGB, 0);
 
     double time = 0;
     struct timespec ts;
     cv::Mat frame, img0, img1;
-    while(1)
+    while (gogogo)
     {
         if (cap.grab()) {
             clock_gettime(CLOCK_REALTIME, &ts);
             time = ts.tv_sec + (double)ts.tv_nsec / 1e9;
             cap.retrieve(frame);
-            img1 = frame.colRange(0, frame.cols / 2);
-            img0 = frame.colRange(frame.cols / 2, frame.cols);
-            if (img0.type() != CV_8UC1) cout << "?????" << img0.type() << "\n";
-            estimator.inputImage(time, img0, img1);
+            if (init_fps) {
+                init_fps=false;
+                system("v4l2-ctl -c exposure=900,frame_rate=30");
+            } else {
+                img1 = frame.colRange(0, frame.cols / 2);
+                img0 = frame.colRange(frame.cols / 2, frame.cols);
+                estimator.inputImage(time, img0, img1);
+            }
         }
     }
 }
@@ -222,8 +229,6 @@ int main(int argc, char **argv)
     registerPub(n);
 
     ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 200, imu_callback, ros::TransportHints().tcpNoDelay());
-    ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 10, img0_callback, ros::TransportHints().tcpNoDelay());
-    ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 10, img1_callback, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
     ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);
     ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);
@@ -231,6 +236,11 @@ int main(int argc, char **argv)
 
     std::thread sync_thread{sync_process};
     ros::spin();
+
+    printf("game over\n");
+    gogogo = false;
+    estimator.gogogo = false;
+    sync_thread.join(); 
 
     return 0;
 }

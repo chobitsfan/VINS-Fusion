@@ -176,4 +176,5 @@ class Estimator
     bool initThreadFlag;
 
     bool send_pose_apm = false;
+    bool gogogo = true;
 };
