@@ -24,7 +24,7 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 0, 0, 1, 0.1,
+   data: [ 0, 0, 1, 0.15,
            -1, 0, 0, 0.0475,
            0, -1, 0, 0, 
            0, 0, 0, 1 ]
@@ -33,7 +33,7 @@ body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 0, 0, 1, 0.1,
+   data: [ 0, 0, 1, 0.15,
            -1, 0, 0, -0.0475,
            0, -1, 0, 0, 
            0, 0, 0, 1 ]
