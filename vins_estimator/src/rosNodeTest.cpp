@@ -78,11 +78,17 @@ void sync_process()
     bool init_fps=true;
     cv::VideoCapture cap;
     cap.open("/dev/video0", cv::CAP_V4L2);
+    while (!cap.isOpened()) {
+        printf("can not open camera, try again...\n");
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        cap.open("/dev/video0", cv::CAP_V4L2);
+    }
+    printf("camera opened\n");
     cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('G','R','E','Y'));
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, 400);
-    //cap.set(cv::CAP_PROP_FPS, 30);
     cap.set(cv::CAP_PROP_CONVERT_RGB, 0);
+    //cap.set(cv::CAP_PROP_FPS, 30); //do not work
 
     double time = 0;
     struct timespec ts;
@@ -202,10 +208,6 @@ void cam_switch_callback(const std_msgs::BoolConstPtr &switch_msg)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "vins_estimator");
-    ros::NodeHandle n("~");
-    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
-
     if(argc != 2)
     {
         printf("please intput: rosrun vins vins_node [config file] \n"
@@ -219,6 +221,12 @@ int main(int argc, char **argv)
 
     readParameters(config_file);
     estimator.setParameter();
+
+    std::thread sync_thread{sync_process};
+
+    ros::init(argc, argv, "vins_estimator");
+    ros::NodeHandle n("~");
+    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
 
 #ifdef EIGEN_DONT_PARALLELIZE
     ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
@@ -234,7 +242,6 @@ int main(int argc, char **argv)
     ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);
     ros::Subscriber sub_send_apm = n.subscribe("/vins_send_pose_apm", 1, send_apm_callback);
 
-    std::thread sync_thread{sync_process};
     ros::spin();
 
     printf("game over\n");
