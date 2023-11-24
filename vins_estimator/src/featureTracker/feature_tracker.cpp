@@ -50,7 +50,7 @@ FeatureTracker::FeatureTracker()
     stereo_cam = 0;
     n_id = 0;
     hasPrediction = false;
-    detector = cv::cuda::createGoodFeaturesToTrackDetector(CV_8UC1, MAX_CNT/3, 0.01, MIN_DIST);
+    detector = cv::cuda::createGoodFeaturesToTrackDetector(CV_8UC1, MAX_CNT, 0.01, MIN_DIST);
     d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, false);
     d_pyrLK_sparse_prediction = cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 1, 30, true);
 }
@@ -126,68 +126,41 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         {
             cur_gpu_pts = cv::cuda::GpuMat(predict_pts);
             d_pyrLK_sparse_prediction->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
-            
-            vector<cv::Point2f> tmp_cur_pts(cur_gpu_pts.cols);
-            cur_gpu_pts.download(tmp_cur_pts);
-            cur_pts = tmp_cur_pts;
 
-            vector<uchar> tmp_status(gpu_status.cols);
-            gpu_status.download(tmp_status);
-            status = tmp_status;
-
-            int succ_num = 0;
-            for (size_t i = 0; i < tmp_status.size(); i++)
-            {
-                if (tmp_status[i])
-                    succ_num++;
-            }
-            if (succ_num < 10)
+            if (cv::cuda::countNonZero(gpu_status) < 10)
             {
                 d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
-
-                vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
-                cur_gpu_pts.download(tmp1_cur_pts);
-                cur_pts = tmp1_cur_pts;
-
-                vector<uchar> tmp1_status(gpu_status.cols);
-                gpu_status.download(tmp1_status);
-                status = tmp1_status;
             }
         }
         else
         {
             d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
-
-            vector<cv::Point2f> tmp1_cur_pts(cur_gpu_pts.cols);
-            cur_gpu_pts.download(tmp1_cur_pts);
-            cur_pts = tmp1_cur_pts;
-
-            vector<uchar> tmp1_status(gpu_status.cols);
-            gpu_status.download(tmp1_status);
-            status = tmp1_status;
         }
+
+        gpu_status.download(status);
+
         if(FLOW_BACK)
         {
             cv::cuda::GpuMat reverse_gpu_status;
             cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
             d_pyrLK_sparse_prediction->calc(cur_gpu_img, prev_gpu_img, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
 
-            vector<cv::Point2f> reverse_pts(reverse_gpu_pts.cols);
+            vector<cv::Point2f> reverse_pts;
             reverse_gpu_pts.download(reverse_pts);
 
-            vector<uchar> reverse_status(reverse_gpu_status.cols);
+            vector<uchar> reverse_status;
             reverse_gpu_status.download(reverse_status);
 
             for(size_t i = 0; i < status.size(); i++)
             {
                 if(status[i] && reverse_status[i] && distance_2(prev_pts[i], reverse_pts[i]) <= 0.25)
-                {
                     status[i] = 1;
-                }
                 else
                     status[i] = 0;
             }
         }
+
+        cur_gpu_pts.download(cur_pts);
         
         for (int i = 0; i < int(cur_pts.size()); i++)
             if (status[i] && !inBorder(cur_pts[i]))
@@ -212,15 +185,15 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         {
             cv::cuda::GpuMat gpu_mask(mask);
             cv::cuda::GpuMat gpu_n_pts;
-                detector->detect(cur_gpu_img, gpu_n_pts, gpu_mask);
+            detector->detect(cur_gpu_img, gpu_n_pts, gpu_mask);
             if(!gpu_n_pts.empty()) {
                 cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(cv::Mat(gpu_n_pts));
                 for (auto &p : n_pts)
-                    {
-                        cur_pts.push_back(p);
-                        ids.push_back(n_id++);
-                        track_cnt.push_back(1);
-                    }
+                {
+                    cur_pts.push_back(p);
+                    ids.push_back(n_id++);
+                    track_cnt.push_back(1);
+                }
             }
         }
         //printf("feature cnt after add %d\n", (int)ids.size());
@@ -247,13 +220,8 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             cv::cuda::GpuMat gpu_status;
             d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
 
-            vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
-            cur_right_gpu_pts.download(tmp_cur_right_pts);
-            cur_right_pts = tmp_cur_right_pts;
-
-            vector<uchar> tmp_status(gpu_status.cols);
-            gpu_status.download(tmp_status);
-            status = tmp_status;
+            cur_right_gpu_pts.download(cur_right_pts);
+            gpu_status.download(status);
 
             if(FLOW_BACK)
             {   
@@ -262,13 +230,9 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 reverseLeft_gpu_Pts = cur_right_gpu_pts;
                 d_pyrLK_sparse_prediction->calc(right_gpu_img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
 
-                vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
-                reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
-                reverseLeftPts = tmp_reverseLeft_Pts;
+                reverseLeft_gpu_Pts.download(reverseLeftPts);
+                status_gpu_RightLeft.download(statusRightLeft);
 
-                vector<uchar> tmp1_status(status_gpu_RightLeft.cols);
-                status_gpu_RightLeft.download(tmp1_status);
-                statusRightLeft = tmp1_status;
                 for(size_t i = 0; i < status.size(); i++)
                 {
                     if(status[i] && statusRightLeft[i] && inBorder(cur_right_pts[i]) && distance_2(cur_pts[i], reverseLeftPts[i]) <= 0.25)
@@ -297,7 +261,6 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     if(SHOW_TRACK)
         drawTrack(cur_img, right_img, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
-    prev_img = cur_img;
     prev_gpu_img = cur_gpu_img;
     prev_pts = cur_pts;
     prev_un_pts = cur_un_pts;
