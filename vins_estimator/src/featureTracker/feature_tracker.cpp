@@ -102,10 +102,10 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     cur_img = _img;
     row = cur_img.rows;
     col = cur_img.cols;
-    cv::Mat rightImg = _img1;
+    cv::Mat right_img = _img1;
 
     cv::cuda::GpuMat cur_gpu_img = cv::cuda::GpuMat(cur_img);
-    cv::cuda::GpuMat right_gpu_Img = cv::cuda::GpuMat(rightImg);
+    cv::cuda::GpuMat right_gpu_img = cv::cuda::GpuMat(right_img);
     /*
     {
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
@@ -245,7 +245,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             cv::cuda::GpuMat cur_gpu_pts(cur_pts);
             cv::cuda::GpuMat cur_right_gpu_pts;
             cv::cuda::GpuMat gpu_status;
-            d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+            d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
 
             vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
             cur_right_gpu_pts.download(tmp_cur_right_pts);
@@ -260,7 +260,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 cv::cuda::GpuMat reverseLeft_gpu_Pts;
                 cv::cuda::GpuMat status_gpu_RightLeft;
                 reverseLeft_gpu_Pts = cur_right_gpu_pts;
-                d_pyrLK_sparse_prediction->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
+                d_pyrLK_sparse_prediction->calc(right_gpu_img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
 
                 vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
                 reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
@@ -295,7 +295,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         prev_un_right_pts_map = cur_un_right_pts_map;
     }
     if(SHOW_TRACK)
-        drawTrack(cur_img, rightImg, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+        drawTrack(cur_img, right_img, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
     prev_img = cur_img;
     prev_gpu_img = cur_gpu_img;
