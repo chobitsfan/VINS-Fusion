@@ -157,16 +157,13 @@ void Estimator::changeSensorType(int use_imu, int use_stereo)
     }
 }
 
-void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
+void Estimator::inputImage(double t, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r)
 {
     inputImageCnt++;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     TicToc featureTrackerTime;
 
-    if(_img1.empty())
-        featureFrame = featureTracker.trackImage(t, _img);
-    else
-        featureFrame = featureTracker.trackImage(t, _img, _img1);
+    featureFrame = featureTracker.trackImage(t, g_img_l, g_img_r);
     //printf("featureTracker time: %f\n", featureTrackerTime.toc());
 
     if (SHOW_TRACK)

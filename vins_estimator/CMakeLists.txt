@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(OpenCV 4 REQUIRED)
 
 # message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
-
+find_package(CUDA REQUIRED)
 find_package(Ceres REQUIRED)
 
 include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
@@ -29,6 +29,7 @@ find_package(Eigen3)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ${CUDA_INCLUDE_DIRS}
 )
 
 catkin_package()
@@ -50,7 +51,7 @@ add_library(vins_lib
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
     src/featureTracker/feature_tracker.cpp)
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES})
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} ${CUDA_LIBRARIES})
 
 
 add_executable(vins_node src/rosNodeTest.cpp)

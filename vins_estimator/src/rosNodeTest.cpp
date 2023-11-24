@@ -15,11 +15,15 @@
 #include <thread>
 #include <mutex>
 #include <time.h>
+#include <cuda_runtime.h>
 #include <ros/ros.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/cudawarping.hpp>
+#include <opencv2/cudastereo.hpp>
+#include <opencv2/cudaarithm.hpp>
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
@@ -75,6 +79,43 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 // extract images with same timestamp from two topics
 void sync_process()
 {
+    void *unified_ptr;
+    cudaMallocManaged(&unified_ptr, 1280*400);
+    cv::Mat frame(400, 1280, CV_8UC1, unified_ptr);
+    cv::cuda::GpuMat g_frame(400, 1280, CV_8UC1, unified_ptr);
+    cv::cuda::GpuMat g_frame_l_rect(400, 640, CV_8UC1);
+    cv::cuda::GpuMat g_frame_r_rect(400, 640, CV_8UC1);
+
+    cv::Mat cam0 = (cv::Mat_<double>(3,3) << 4.5871895544956595e+02, 0., 3.3657517879988706e+02, 0.,4.5873147178036533e+02, 2.1628073654244133e+02, 0., 0., 1.);
+    cv::Mat dist0 = (cv::Mat_<double>(5,1) << 5.7076449331591138e-02, -4.7450762182942974e-02, -3.3333501353066592e-03, 3.5795258190291261e-04, 0.);
+    cv::Mat cam1 = (cv::Mat_<double>(3,3) << 4.5812706153237770e+02, 0., 3.2301901906538336e+02, 0., 4.5787818725258467e+02, 2.2334506060755325e+02, 0., 0., 1.);
+    cv::Mat dist1 = (cv::Mat_<double>(5,1) << 5.3889271815474718e-02, -5.3415172791704893e-02, -4.7030040966682882e-03, 1.0284987824595350e-03, 0.);
+    cv::Mat R1 =  (cv::Mat_<double>(3,3) << 9.9994869126998354e-01, -7.3895828685681345e-03,
+       -6.9288449597343840e-03, 7.4216277987357877e-03,
+       9.9996183013404594e-01, 4.6106090472299924e-03,
+       6.8945100090219780e-03, -4.6617957911014750e-03,
+       9.9996536609611519e-01);
+    cv::Mat R2 = (cv::Mat_<double>(3,3) << 9.9986633282874682e-01, -9.8602871037420207e-03,
+       1.3041902231865726e-02, 9.9206488179775787e-03,
+       9.9994033826988116e-01, -4.5717204361087086e-03,
+       -1.2996045653356457e-02, 4.7004934791309884e-03,
+       9.9990449951904337e-01);
+    cv::Mat P1 = (cv::Mat_<double>(3,4) << 4.9192896209865114e+02, 0., 3.2796942901611328e+02, 0., 0.,
+       4.9192896209865114e+02, 2.1781097984313965e+02, 0., 0., 0., 1., 0.);
+    cv::Mat P2 = (cv::Mat_<double>(3,4) << 4.9192896209865114e+02, 0., 3.2796942901611328e+02,
+       -4.9456318369509859e+02, 0., 4.9192896209865114e+02,
+       2.1781097984313965e+02, 0., 0., 0., 1., 0.);
+    cv::Mat Q = (cv::Mat_<float>(4,4) << 1., 0., 0., -3.2796942901611328e+02, 0., 1., 0.,
+       -2.1781097984313965e+02, 0., 0., 0., 4.9192896209865114e+02, 0.,
+       0., 9.9467363992449664e-01, 0.);
+    cv::Mat cam0_map1, cam0_map2, cam1_map1, cam1_map2;
+    cv::initUndistortRectifyMap(cam0, dist0, R1, P1, cv::Size2i(640,400), CV_32FC1, cam0_map1, cam0_map2);
+    cv::initUndistortRectifyMap(cam1, dist1, R2, P2, cv::Size2i(640,400), CV_32FC1, cam1_map1, cam1_map2);
+    cv::cuda::GpuMat g_cam0_map1(cam0_map1);
+    cv::cuda::GpuMat g_cam0_map2(cam0_map2);
+    cv::cuda::GpuMat g_cam1_map1(cam1_map1);
+    cv::cuda::GpuMat g_cam1_map2(cam1_map2);
+
     bool init_fps=true;
     cv::VideoCapture cap;
     cap.open("/dev/video0", cv::CAP_V4L2);
@@ -92,7 +133,6 @@ void sync_process()
 
     double time = 0;
     struct timespec ts;
-    cv::Mat frame, img0, img1;
     while (gogogo)
     {
         if (cap.grab()) {
@@ -103,9 +143,11 @@ void sync_process()
                 init_fps=false;
                 system("v4l2-ctl -c exposure=900,frame_rate=30");
             } else {
-                img1 = frame.colRange(0, frame.cols / 2);
-                img0 = frame.colRange(frame.cols / 2, frame.cols);
-                estimator.inputImage(time, img0, img1);
+                cv::cuda::GpuMat g_frame_l = g_frame.colRange(g_frame.cols / 2, g_frame.cols);
+                cv::cuda::GpuMat g_frame_r = g_frame.colRange(0, g_frame.cols / 2);
+                cv::cuda::remap(g_frame_l, g_frame_l_rect, g_cam0_map1, g_cam0_map2, cv::INTER_LINEAR);
+                cv::cuda::remap(g_frame_r, g_frame_r_rect, g_cam1_map1, g_cam1_map2, cv::INTER_LINEAR);
+                estimator.inputImage(time, g_frame_l_rect, g_frame_r_rect);
             }
         }
     }

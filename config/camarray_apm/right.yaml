@@ -5,12 +5,12 @@ camera_name: camera
 image_width: 640 
 image_height: 400
 distortion_parameters:
-   k1: 0.0796772
-   k2: -0.101232
-   p1: -0.00268103
-   p2: -0.00103588
+   k1: 0
+   k2: 0
+   p1: 0
+   p2: 0
 projection_parameters:
-   fx: 458.698
-   fy: 458.118
-   cx: 319.129
-   cy: 223.708
+   fx: 4.9192896209865114e+02
+   fy: 4.9192896209865114e+02
+   cx: 3.2796942901611328e+02
+   cy: 2.1781097984313965e+02

@@ -94,18 +94,14 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
-map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
+map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r)
 {
     static int ccc=0;
     TicToc t_r;
     cur_time = _cur_time;
-    cur_img = _img;
-    row = cur_img.rows;
-    col = cur_img.cols;
-    cv::Mat right_img = _img1;
+    row = g_img_l.rows;
+    col = g_img_l.cols;
 
-    cv::cuda::GpuMat cur_gpu_img = cv::cuda::GpuMat(cur_img);
-    cv::cuda::GpuMat right_gpu_img = cv::cuda::GpuMat(right_img);
     /*
     {
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
@@ -125,16 +121,16 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         if(hasPrediction)
         {
             cur_gpu_pts = cv::cuda::GpuMat(predict_pts);
-            d_pyrLK_sparse_prediction->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
+            d_pyrLK_sparse_prediction->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status);
 
             if (cv::cuda::countNonZero(gpu_status) < 10)
             {
-                d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
+                d_pyrLK_sparse->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status);
             }
         }
         else
         {
-            d_pyrLK_sparse->calc(prev_gpu_img, cur_gpu_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
+            d_pyrLK_sparse->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status);
         }
 
         gpu_status.download(status);
@@ -143,7 +139,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         {
             cv::cuda::GpuMat reverse_gpu_status;
             cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
-            d_pyrLK_sparse_prediction->calc(cur_gpu_img, prev_gpu_img, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
+            d_pyrLK_sparse_prediction->calc(g_img_l, prev_g_img_l, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
 
             vector<cv::Point2f> reverse_pts;
             reverse_gpu_pts.download(reverse_pts);
@@ -185,7 +181,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         {
             cv::cuda::GpuMat gpu_mask(mask);
             cv::cuda::GpuMat gpu_n_pts;
-            detector->detect(cur_gpu_img, gpu_n_pts, gpu_mask);
+            detector->detect(g_img_l, gpu_n_pts, gpu_mask);
             if(!gpu_n_pts.empty()) {
                 cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(cv::Mat(gpu_n_pts));
                 for (auto &p : n_pts)
@@ -202,7 +198,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
     pts_velocity = ptsVelocity(ids, cur_un_pts, cur_un_pts_map, prev_un_pts_map);
 
-    if(!_img1.empty() && stereo_cam)
+    if(!g_img_r.empty() && stereo_cam)
     {
         ids_right.clear();
         cur_right_pts.clear();
@@ -218,7 +214,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             cv::cuda::GpuMat cur_gpu_pts(cur_pts);
             cv::cuda::GpuMat cur_right_gpu_pts;
             cv::cuda::GpuMat gpu_status;
-            d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+            d_pyrLK_sparse->calc(g_img_l, g_img_r, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
 
             cur_right_gpu_pts.download(cur_right_pts);
             gpu_status.download(status);
@@ -228,7 +224,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                 cv::cuda::GpuMat reverseLeft_gpu_Pts;
                 cv::cuda::GpuMat status_gpu_RightLeft;
                 reverseLeft_gpu_Pts = cur_right_gpu_pts;
-                d_pyrLK_sparse_prediction->calc(right_gpu_img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
+                d_pyrLK_sparse_prediction->calc(g_img_r, g_img_l, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
 
                 reverseLeft_gpu_Pts.download(reverseLeftPts);
                 status_gpu_RightLeft.download(statusRightLeft);
@@ -258,10 +254,9 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
         prev_un_right_pts_map = cur_un_right_pts_map;
     }
-    if(SHOW_TRACK)
-        drawTrack(cur_img, right_img, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+    //if(SHOW_TRACK) drawTrack(cur_img, right_img, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
-    prev_gpu_img = cur_gpu_img;
+    g_img_l.copyTo(prev_g_img_l);
     prev_pts = cur_pts;
     prev_un_pts = cur_un_pts;
     prev_un_pts_map = cur_un_pts_map;
@@ -293,7 +288,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
 
-    if (!_img1.empty() && stereo_cam)
+    if (!g_img_r.empty() && stereo_cam)
     {
         for (size_t i = 0; i < ids_right.size(); i++)
         {
@@ -369,43 +364,6 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file)
     }
     if (calib_file.size() == 2)
         stereo_cam = 1;
-}
-
-void FeatureTracker::showUndistortion(const string &name)
-{
-    cv::Mat undistortedImg(row + 600, col + 600, CV_8UC1, cv::Scalar(0));
-    vector<Eigen::Vector2d> distortedp, undistortedp;
-    for (int i = 0; i < col; i++)
-        for (int j = 0; j < row; j++)
-        {
-            Eigen::Vector2d a(i, j);
-            Eigen::Vector3d b;
-            m_camera[0]->liftProjective(a, b);
-            distortedp.push_back(a);
-            undistortedp.push_back(Eigen::Vector2d(b.x() / b.z(), b.y() / b.z()));
-            //printf("%f,%f->%f,%f,%f\n)\n", a.x(), a.y(), b.x(), b.y(), b.z());
-        }
-    for (int i = 0; i < int(undistortedp.size()); i++)
-    {
-        cv::Mat pp(3, 1, CV_32FC1);
-        pp.at<float>(0, 0) = undistortedp[i].x() * FOCAL_LENGTH + col / 2;
-        pp.at<float>(1, 0) = undistortedp[i].y() * FOCAL_LENGTH + row / 2;
-        pp.at<float>(2, 0) = 1.0;
-        //cout << trackerData[0].K << endl;
-        //printf("%lf %lf\n", p.at<float>(1, 0), p.at<float>(0, 0));
-        //printf("%lf %lf\n", pp.at<float>(1, 0), pp.at<float>(0, 0));
-        if (pp.at<float>(1, 0) + 300 >= 0 && pp.at<float>(1, 0) + 300 < row + 600 && pp.at<float>(0, 0) + 300 >= 0 && pp.at<float>(0, 0) + 300 < col + 600)
-        {
-            undistortedImg.at<uchar>(pp.at<float>(1, 0) + 300, pp.at<float>(0, 0) + 300) = cur_img.at<uchar>(distortedp[i].y(), distortedp[i].x());
-        }
-        else
-        {
-            //ROS_ERROR("(%f %f) -> (%f %f)", distortedp[i].y, distortedp[i].x, pp.at<float>(1, 0), pp.at<float>(0, 0));
-        }
-    }
-    // turn the following code on if you need
-    // cv::imshow(name, undistortedImg);
-    // cv::waitKey(0);
 }
 
 vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts, camodocal::CameraPtr cam)
