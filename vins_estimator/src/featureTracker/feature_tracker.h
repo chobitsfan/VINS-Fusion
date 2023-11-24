@@ -21,6 +21,7 @@
 #include <opencv2/cudaoptflow.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudaarithm.hpp>
+#include <opencv2/core/cuda.hpp>
 
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
@@ -87,4 +88,5 @@ public:
     cv::cuda::GpuMat prev_g_img_l;
     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse;
     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse_prediction;
+    cv::cuda::Stream cuda_stream;
 };

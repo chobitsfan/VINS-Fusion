@@ -151,6 +151,9 @@ void sync_process()
             }
         }
     }
+
+    cudaFree(&unified_ptr);
+    cap.release();
 }
 
 

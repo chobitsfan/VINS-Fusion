@@ -256,7 +256,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     }
     //if(SHOW_TRACK) drawTrack(cur_img, right_img, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
-    g_img_l.copyTo(prev_g_img_l);
+    g_img_l.copyTo(prev_g_img_l, cuda_stream);
     prev_pts = cur_pts;
     prev_un_pts = cur_un_pts;
     prev_un_pts_map = cur_un_pts_map;
