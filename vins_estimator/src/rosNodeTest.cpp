@@ -30,11 +30,11 @@
 
 Estimator estimator;
 
-queue<sensor_msgs::ImuConstPtr> imu_buf;
-queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::ImageConstPtr> img0_buf;
 queue<sensor_msgs::ImageConstPtr> img1_buf;
 std::mutex m_buf;
+
+static ros::Publisher depth_img_pub;
 
 int gogogo = true;
 
@@ -116,6 +116,12 @@ void sync_process()
     cv::cuda::GpuMat g_cam1_map1(cam1_map1);
     cv::cuda::GpuMat g_cam1_map2(cam1_map2);
 
+    cv::Ptr<cv::cuda::StereoSGM> sgbm = cv::cuda::createStereoSGM();
+    cv::cuda::GpuMat g_disp_map(400, 640, CV_16SC1);
+    cv::cuda::GpuMat g_disp_map_f(400, 640, CV_32FC1);
+    cv::cuda::GpuMat g_3d_img(400, 640, CV_32FC3);
+    cv::Mat img_3d(400, 640, CV_32FC3);
+
     bool init_fps=true;
     cv::VideoCapture cap;
     cap.open("/dev/video0", cv::CAP_V4L2);
@@ -133,6 +139,10 @@ void sync_process()
 
     double time = 0;
     struct timespec ts;
+    cv_bridge::CvImage cvi;
+    cvi.header.frame_id = "image";
+    cvi.encoding = sensor_msgs::image_encodings::TYPE_32FC3;
+    cvi.image = img_3d;
     while (gogogo)
     {
         if (cap.grab()) {
@@ -148,6 +158,21 @@ void sync_process()
                 cv::cuda::remap(g_frame_l, g_frame_l_rect, g_cam0_map1, g_cam0_map2, cv::INTER_LINEAR);
                 cv::cuda::remap(g_frame_r, g_frame_r_rect, g_cam1_map1, g_cam1_map2, cv::INTER_LINEAR);
                 estimator.inputImage(time, g_frame_l_rect, g_frame_r_rect);
+            
+                //auto t_a = chrono::high_resolution_clock::now();    
+                sgbm->compute(g_frame_l_rect, g_frame_r_rect, g_disp_map);
+                cv::cuda::multiply(g_disp_map, cv::Scalar(0.0625), g_disp_map_f, 1,CV_32FC1);
+                cv::cuda::reprojectImageTo3D(g_disp_map_f, g_3d_img, Q, 3);
+                g_3d_img.download(img_3d);
+                //auto t_b = chrono::high_resolution_clock::now();
+                //cout<<"depth:"<< chrono::duration_cast<chrono::milliseconds>(t_b-t_a).count()<<"ms"<<endl;
+
+                //std_msgs::Header header;
+                //header.frame_id="image";
+                //header.stamp=ros::Time::now();
+                //depth_img_pub.publish(cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_32FC3, img_3d).toImageMsg());
+                cvi.header.stamp = ros::Time::now();
+                depth_img_pub.publish(cvi.toImageMsg());
             }
         }
     }
@@ -280,6 +305,8 @@ int main(int argc, char **argv)
     ROS_WARN("waiting for image and imu...");
 
     registerPub(n);
+
+    depth_img_pub = n.advertise<sensor_msgs::Image>("/camera/depth/image_rect_raw", 1);
 
     ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 200, imu_callback, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
