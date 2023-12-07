@@ -79,35 +79,57 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
 // extract images with same timestamp from two topics
 void sync_process()
 {
+#if 0     
     void *unified_ptr;
     cudaMallocManaged(&unified_ptr, 1280*400);
     cv::Mat frame(400, 1280, CV_8UC1, unified_ptr);
     cv::cuda::GpuMat g_frame(400, 1280, CV_8UC1, unified_ptr);
     cv::cuda::GpuMat g_frame_l_rect(400, 640, CV_8UC1);
     cv::cuda::GpuMat g_frame_r_rect(400, 640, CV_8UC1);
+#else
+    cv::Mat frame(400, 1280, CV_8UC1);
+    cv::cuda::GpuMat g_frame(400, 1280, CV_8UC1);
+    cv::cuda::GpuMat g_frame_l, g_frame_r, g_frame_l_rect, g_frame_r_rect, g_frame_l_buf, g_frame_r_buf;
+#endif
 
-    cv::Mat cam0 = (cv::Mat_<double>(3,3) << 4.5871895544956595e+02, 0., 3.3657517879988706e+02, 0.,4.5873147178036533e+02, 2.1628073654244133e+02, 0., 0., 1.);
-    cv::Mat dist0 = (cv::Mat_<double>(5,1) << 5.7076449331591138e-02, -4.7450762182942974e-02, -3.3333501353066592e-03, 3.5795258190291261e-04, 0.);
-    cv::Mat cam1 = (cv::Mat_<double>(3,3) << 4.5812706153237770e+02, 0., 3.2301901906538336e+02, 0., 4.5787818725258467e+02, 2.2334506060755325e+02, 0., 0., 1.);
-    cv::Mat dist1 = (cv::Mat_<double>(5,1) << 5.3889271815474718e-02, -5.3415172791704893e-02, -4.7030040966682882e-03, 1.0284987824595350e-03, 0.);
-    cv::Mat R1 =  (cv::Mat_<double>(3,3) << 9.9994869126998354e-01, -7.3895828685681345e-03,
-       -6.9288449597343840e-03, 7.4216277987357877e-03,
-       9.9996183013404594e-01, 4.6106090472299924e-03,
-       6.8945100090219780e-03, -4.6617957911014750e-03,
-       9.9996536609611519e-01);
-    cv::Mat R2 = (cv::Mat_<double>(3,3) << 9.9986633282874682e-01, -9.8602871037420207e-03,
-       1.3041902231865726e-02, 9.9206488179775787e-03,
-       9.9994033826988116e-01, -4.5717204361087086e-03,
-       -1.2996045653356457e-02, 4.7004934791309884e-03,
-       9.9990449951904337e-01);
-    cv::Mat P1 = (cv::Mat_<double>(3,4) << 4.9192896209865114e+02, 0., 3.2796942901611328e+02, 0., 0.,
-       4.9192896209865114e+02, 2.1781097984313965e+02, 0., 0., 0., 1., 0.);
-    cv::Mat P2 = (cv::Mat_<double>(3,4) << 4.9192896209865114e+02, 0., 3.2796942901611328e+02,
-       -4.9456318369509859e+02, 0., 4.9192896209865114e+02,
-       2.1781097984313965e+02, 0., 0., 0., 1., 0.);
-    cv::Mat Q = (cv::Mat_<float>(4,4) << 1., 0., 0., -3.2796942901611328e+02, 0., 1., 0.,
-       -2.1781097984313965e+02, 0., 0., 0., 4.9192896209865114e+02, 0.,
-       0., 9.9467363992449664e-01, 0.);
+    cv::Mat cam0 = (cv::Mat_<double>(3,3) <<
+        4.5871894208851108e+02, 0., 3.3657516241366756e+02, 0.,
+        4.5873145101846643e+02, 2.1628074178739521e+02, 0., 0., 1.);
+    cv::Mat dist0 = (cv::Mat_<double>(5,1) << 
+        5.7076163517889071e-02, -4.7449852647679529e-02,
+       -3.3333133411082233e-03, 3.5791943710580180e-04, 0.);
+    cv::Mat cam1 = (cv::Mat_<double>(3,3) << 
+        4.5835888364887256e+02, 0., 3.2070900760895131e+02, 0.,
+        4.5836189927937050e+02, 2.2369740035407133e+02, 0., 0., 1.);
+    cv::Mat dist1 = (cv::Mat_<double>(5,1) << 
+        5.9085906436082768e-02, -6.2062049999354461e-02,
+       -4.2127875324890858e-03, -4.0428396364065671e-04, 0.);
+    cv::Mat R1 =  (cv::Mat_<double>(3,3) <<
+        9.9992050723396342e-01, -7.5619535204292680e-03,
+       -1.0089403943158532e-02, 7.6080712339965124e-03,
+       9.9996075032904486e-01, 4.5403803223814567e-03,
+       1.0054673792410714e-02, -4.6167802988988796e-03,
+       9.9993879256412488e-01);
+    cv::Mat R2 = (cv::Mat_<double>(3,3) << 
+        9.9990719408534878e-01, -1.0043377142692959e-02,
+       9.2050959763823655e-03, 1.0085419948126504e-02,
+       9.9993886915486030e-01, -4.5323567565640306e-03,
+       -9.1590130928343328e-03, 4.6247733856343461e-03,
+       9.9994736058969469e-01);
+    cv::Mat P1 = (cv::Mat_<double>(3,4) <<
+        4.9297293111444242e+02, 0., 3.2864122009277344e+02, 0., 0.,
+       4.9297293111444242e+02, 2.1812635612487793e+02, 0., 0., 0., 1.,
+       0.);
+    cv::Mat P2 = (cv::Mat_<double>(3,4) <<
+        4.9297293111444242e+02, 0., 3.2864122009277344e+02,
+       -4.9681965181898590e+01, 0., 4.9297293111444242e+02,
+       2.1812635612487793e+02, 0., 0., 0., 1., 0.);
+    cv::Mat Q = (cv::Mat_<float>(4,4) << 
+        1., 0., 0., -3.2864122009277344e+02, 0., 1., 0.,
+       -2.1812635612487793e+02, 0., 0., 0., 4.9297293111444242e+02, 0.,
+       0., 9.9225730968881827e+00, 0.);
+    //double baseline = 1.0077095772657289e-01;
+    //double focal = 4.9297293111444242e+02;
     cv::Mat cam0_map1, cam0_map2, cam1_map1, cam1_map2;
     cv::initUndistortRectifyMap(cam0, dist0, R1, P1, cv::Size2i(640,400), CV_32FC1, cam0_map1, cam0_map2);
     cv::initUndistortRectifyMap(cam1, dist1, R2, P2, cv::Size2i(640,400), CV_32FC1, cam1_map1, cam1_map2);
@@ -116,11 +138,22 @@ void sync_process()
     cv::cuda::GpuMat g_cam1_map1(cam1_map1);
     cv::cuda::GpuMat g_cam1_map2(cam1_map2);
 
-    cv::Ptr<cv::cuda::StereoSGM> sgbm = cv::cuda::createStereoSGM();
-    cv::cuda::GpuMat g_disp_map(400, 640, CV_16SC1);
-    cv::cuda::GpuMat g_disp_map_f(400, 640, CV_32FC1);
-    cv::cuda::GpuMat g_3d_img(400, 640, CV_32FC3);
-    cv::Mat img_3d(400, 640, CV_32FC3);
+    cv::cuda::Stream cuda_stream1;
+    cv::cuda::Stream cuda_stream2(cudaStreamNonBlocking);
+    //cv::Ptr<cv::cuda::StereoSGM> sgm = cv::cuda::createStereoSGM();
+    cv::Ptr<cv::cuda::StereoBM> bm = cv::cuda::createStereoBM(64, 19);
+    bm->setUniquenessRatio(5);
+    bm->setTextureThreshold(10);
+    cv::Ptr<cv::cuda::DisparityBilateralFilter> filter = cv::cuda::createDisparityBilateralFilter(64);
+    //cv::Ptr<cv::cuda::StereoConstantSpaceBP> csbp = cv::cuda::createStereoConstantSpaceBP(128,8,4,4,CV_16SC1);
+    cv::cuda::GpuMat g_disp_map;
+    cv::cuda::GpuMat g_disp_map_filtered;
+    //cv::cuda::GpuMat g_disp_map_f(400, 640, CV_32FC1);
+    cv::cuda::GpuMat g_3d_img;
+    cv::cuda::GpuMat g_split_img[3];
+    //cv::cuda::GpuMat g_depth_img;
+    cv::cuda::GpuMat g_depth_img_scaled;
+    cv::Mat depth_img;
 
     bool init_fps=true;
     cv::VideoCapture cap;
@@ -138,11 +171,12 @@ void sync_process()
     //cap.set(cv::CAP_PROP_FPS, 30); //do not work
 
     double time = 0;
-    struct timespec ts;
-    cv_bridge::CvImage cvi;
-    cvi.header.frame_id = "image";
-    cvi.encoding = sensor_msgs::image_encodings::TYPE_32FC3;
-    cvi.image = img_3d;
+    struct timespec ts;    
+    std_msgs::Header ros_header;
+    ros_header.frame_id = "image";
+    int cc=0, nn=0;
+    bool working=false;
+    std::chrono::time_point<std::chrono::high_resolution_clock> t_a, t_b;
     while (gogogo)
     {
         if (cap.grab()) {
@@ -153,17 +187,44 @@ void sync_process()
                 init_fps=false;
                 system("v4l2-ctl -c exposure=900,frame_rate=30");
             } else {
-                cv::cuda::GpuMat g_frame_l = g_frame.colRange(g_frame.cols / 2, g_frame.cols);
-                cv::cuda::GpuMat g_frame_r = g_frame.colRange(0, g_frame.cols / 2);
-                cv::cuda::remap(g_frame_l, g_frame_l_rect, g_cam0_map1, g_cam0_map2, cv::INTER_LINEAR);
-                cv::cuda::remap(g_frame_r, g_frame_r_rect, g_cam1_map1, g_cam1_map2, cv::INTER_LINEAR);
-                estimator.inputImage(time, g_frame_l_rect, g_frame_r_rect);
-            
-                //auto t_a = chrono::high_resolution_clock::now();    
-                sgbm->compute(g_frame_l_rect, g_frame_r_rect, g_disp_map);
-                cv::cuda::multiply(g_disp_map, cv::Scalar(0.0625), g_disp_map_f, 1,CV_32FC1);
-                cv::cuda::reprojectImageTo3D(g_disp_map_f, g_3d_img, Q, 3);
-                g_3d_img.download(img_3d);
+                //t_a = chrono::high_resolution_clock::now();
+                g_frame.upload(frame, cuda_stream1);
+                g_frame_l = g_frame.colRange(g_frame.cols / 2, g_frame.cols);
+                g_frame_r = g_frame.colRange(0, g_frame.cols / 2);
+                cv::cuda::remap(g_frame_l, g_frame_l_rect, g_cam0_map1, g_cam0_map2, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(), cuda_stream1);
+                cv::cuda::remap(g_frame_r, g_frame_r_rect, g_cam1_map1, g_cam1_map2, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(), cuda_stream1);
+                //t_b = chrono::high_resolution_clock::now();
+                //cout<<"remap:"<< chrono::duration_cast<chrono::milliseconds>(t_b-t_a).count()<<"ms"<<endl;
+                //t_a = chrono::high_resolution_clock::now();
+                if (nn>3) estimator.inputImage(time, g_frame_l_rect, g_frame_r_rect, cuda_stream1); else nn++;
+                //t_b = chrono::high_resolution_clock::now();
+                //cout<<"tracker:"<< chrono::duration_cast<chrono::milliseconds>(t_b-t_a).count()<<"ms"<<endl;
+#if 1
+                cc++;
+                if (cc>=4)  {
+                    //cout<<"depth\n";
+                    cc=0;
+                    working=true;
+                    ros_header.stamp.sec = ts.tv_sec;
+                    ros_header.stamp.nsec = ts.tv_nsec;
+                    //t_a = chrono::high_resolution_clock::now();
+                    g_frame_l_rect.copyTo(g_frame_l_buf, cuda_stream2);
+                    g_frame_r_rect.copyTo(g_frame_r_buf, cuda_stream2);
+                    bm->compute(g_frame_l_buf, g_frame_r_buf, g_disp_map, cuda_stream2);
+                    filter->apply(g_disp_map, g_frame_l_buf, g_disp_map_filtered, cuda_stream2);
+                    cv::cuda::reprojectImageTo3D(g_disp_map_filtered, g_3d_img, Q, 3, cuda_stream2);
+                    //t_b = chrono::high_resolution_clock::now();
+                    //cout<<"disp:"<< chrono::duration_cast<chrono::milliseconds>(t_b-t_a).count()<<"ms"<<endl;
+                }
+                //cv::cuda::divide(cv::Scalar(baseline * focal), g_disp_map, g_depth_img, 1, CV_32FC1);
+                //g_depth_img.convertTo(g_depth_img_scaled, CV_16UC1, 1000);
+                //filter->apply(g_disp_map, g_frame_l_rect, g_disp_map_filtered);
+                //cv::cuda::reprojectImageTo3D(g_disp_map, g_3d_img, Q, 3);
+                //cv::cuda::split(g_3d_img, g_split_img);
+                //cv::cuda::threshold(g_split_img[2], g_split_img[1], 0, 0, cv::THRESH_TOZERO); //reuse unused
+                //cv::cuda::threshold(g_split_img[1], g_split_img[0], 6 , 0, cv::THRESH_TRUNC);
+                //g_split_img[0].convertTo(g_depth_img_scaled, CV_16UC1, 1000);
+                //g_depth_img_scaled.download(depth_img);
                 //auto t_b = chrono::high_resolution_clock::now();
                 //cout<<"depth:"<< chrono::duration_cast<chrono::milliseconds>(t_b-t_a).count()<<"ms"<<endl;
 
@@ -171,13 +232,22 @@ void sync_process()
                 //header.frame_id="image";
                 //header.stamp=ros::Time::now();
                 //depth_img_pub.publish(cv_bridge::CvImage(header, sensor_msgs::image_encodings::TYPE_32FC3, img_3d).toImageMsg());
-                cvi.header.stamp = ros::Time::now();
-                depth_img_pub.publish(cvi.toImageMsg());
+                if (working && cuda_stream2.queryIfComplete()) {
+                    working=false;
+                    cv::cuda::split(g_3d_img, g_split_img);
+                    cv::cuda::threshold(g_split_img[2], g_split_img[0], 10, 0, cv::THRESH_TRUNC); //reuse unused
+                    g_split_img[0].convertTo(g_depth_img_scaled, CV_16UC1, 1000);
+                    g_depth_img_scaled.download(depth_img);
+                    //ros_header.stamp.sec = ts.tv_sec;
+                    //ros_header.stamp.nsec = ts.tv_nsec;
+                    depth_img_pub.publish(cv_bridge::CvImage(ros_header, "mono16", depth_img).toImageMsg());
+                }
+#endif
             }
         }
     }
 
-    cudaFree(&unified_ptr);
+    //cudaFree(&unified_ptr);
     cap.release();
 }
 
@@ -308,10 +378,10 @@ int main(int argc, char **argv)
 
     depth_img_pub = n.advertise<sensor_msgs::Image>("/camera/depth/image_rect_raw", 1);
 
-    ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 200, imu_callback, ros::TransportHints().tcpNoDelay());
-    ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
-    ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);
-    ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);
+    ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 500, imu_callback, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_restart = n.subscribe("/vins_restart", 1, restart_callback);
+    //ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);
+    //ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);
     ros::Subscriber sub_send_apm = n.subscribe("/vins_send_pose_apm", 1, send_apm_callback);
 
     ros::spin();

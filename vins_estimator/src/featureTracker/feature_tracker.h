@@ -41,7 +41,7 @@ class FeatureTracker
 {
 public:
     FeatureTracker();
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImage(double _cur_time, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r);
+    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImage(double _cur_time, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r, cv::cuda::Stream& cuda_stream);
     void setMask();
     void readIntrinsicParameter(const vector<string> &calib_file);
     void showUndistortion(const string &name);
@@ -88,5 +88,4 @@ public:
     cv::cuda::GpuMat prev_g_img_l;
     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse;
     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse_prediction;
-    cv::cuda::Stream cuda_stream;
 };

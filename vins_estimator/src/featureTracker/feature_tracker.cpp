@@ -94,10 +94,10 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
-map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r)
+map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r, cv::cuda::Stream& cuda_stream)
 {
-    static int ccc=0;
-    TicToc t_r;
+    //static int ccc=0;
+    //TicToc t_r;
     cur_time = _cur_time;
     row = g_img_l.rows;
     col = g_img_l.cols;
@@ -115,38 +115,47 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     if (prev_pts.size() > 0)
     {
         vector<uchar> status;
-        cv::cuda::GpuMat prev_gpu_pts(prev_pts);
-        cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+        cv::cuda::GpuMat prev_gpu_pts;
+        prev_gpu_pts.upload(prev_pts, cuda_stream);
+        cv::cuda::GpuMat cur_gpu_pts;
         cv::cuda::GpuMat gpu_status;
         if(hasPrediction)
         {
-            cur_gpu_pts = cv::cuda::GpuMat(predict_pts);
-            d_pyrLK_sparse_prediction->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status);
+            cur_gpu_pts.upload(predict_pts, cuda_stream);
+            d_pyrLK_sparse_prediction->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status, cv::noArray(), cuda_stream);
+            cv::cuda::GpuMat gpu_status_nonzero;
+            cv::cuda::countNonZero(gpu_status, gpu_status_nonzero, cuda_stream);
+            int succ_num = 0;
+            gpu_status_nonzero.download(cv::Mat(1, 1, CV_32SC1, &succ_num), cuda_stream); // countnonzero.cu
+            cuda_stream.waitForCompletion();
 
-            if (cv::cuda::countNonZero(gpu_status) < 10)
+            if (succ_num < 10)
             {
-                d_pyrLK_sparse->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status);
+                d_pyrLK_sparse->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status, cv::noArray(), cuda_stream);
             }
         }
         else
         {
-            d_pyrLK_sparse->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status);
+            cur_gpu_pts.upload(cur_pts, cuda_stream);
+            d_pyrLK_sparse->calc(prev_g_img_l, g_img_l, prev_gpu_pts, cur_gpu_pts, gpu_status, cv::noArray(), cuda_stream);
         }
 
-        gpu_status.download(status);
+        gpu_status.download(status, cuda_stream);
+        cur_gpu_pts.download(cur_pts, cuda_stream);
 
         if(FLOW_BACK)
         {
             cv::cuda::GpuMat reverse_gpu_status;
             cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
-            d_pyrLK_sparse_prediction->calc(g_img_l, prev_g_img_l, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status);
+            d_pyrLK_sparse_prediction->calc(g_img_l, prev_g_img_l, cur_gpu_pts, reverse_gpu_pts, reverse_gpu_status, cv::noArray(), cuda_stream);
 
             vector<cv::Point2f> reverse_pts;
-            reverse_gpu_pts.download(reverse_pts);
+            reverse_gpu_pts.download(reverse_pts, cuda_stream);
 
             vector<uchar> reverse_status;
-            reverse_gpu_status.download(reverse_status);
+            reverse_gpu_status.download(reverse_status, cuda_stream);
 
+            cuda_stream.waitForCompletion();
             for(size_t i = 0; i < status.size(); i++)
             {
                 if(status[i] && reverse_status[i] && distance_2(prev_pts[i], reverse_pts[i]) <= 0.25)
@@ -155,8 +164,6 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                     status[i] = 0;
             }
         }
-
-        cur_gpu_pts.download(cur_pts);
         
         for (int i = 0; i < int(cur_pts.size()); i++)
             if (status[i] && !inBorder(cur_pts[i]))
@@ -171,28 +178,29 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     for (auto &n : track_cnt)
         n++;
 
-    if (1)
+    //if (1)
     {
         //rejectWithF();
         setMask();
 
-        int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
-        if (n_max_cnt > 0)
+        if (cur_pts.size() < (unsigned int)MAX_CNT)
         {
-            cv::cuda::GpuMat gpu_mask(mask);
+            cv::cuda::GpuMat gpu_mask;
+            gpu_mask.upload(mask, cuda_stream);
             cv::cuda::GpuMat gpu_n_pts;
-            detector->detect(g_img_l, gpu_n_pts, gpu_mask);
-            if(!gpu_n_pts.empty()) {
-                cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(cv::Mat(gpu_n_pts));
-                for (auto &p : n_pts)
-                {
-                    cur_pts.push_back(p);
-                    ids.push_back(n_id++);
-                    track_cnt.push_back(1);
-                }
+            detector->detect(g_img_l, gpu_n_pts, gpu_mask, cuda_stream);
+            cv::Mat n_pts_dl;
+            gpu_n_pts.download(n_pts_dl, cuda_stream);
+            cuda_stream.waitForCompletion();
+            cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(n_pts_dl);
+            for (auto &p : n_pts)
+            {
+                cur_pts.push_back(p);
+                ids.push_back(n_id++);
+                track_cnt.push_back(1);
             }
+            //printf("feature cnt after add %d %d %d\n", (int)ids.size(), n_pts_dl.total(), MAX_CNT);
         }
-        //printf("feature cnt after add %d\n", (int)ids.size());
     }
 
     cur_un_pts = undistortedPts(cur_pts, m_camera[0]);
@@ -211,23 +219,26 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             vector<cv::Point2f> reverseLeftPts;
             vector<uchar> status, statusRightLeft;
 
-            cv::cuda::GpuMat cur_gpu_pts(cur_pts);
+            cv::cuda::GpuMat cur_gpu_pts;
+            cur_gpu_pts.upload(cur_pts, cuda_stream);
             cv::cuda::GpuMat cur_right_gpu_pts;
             cv::cuda::GpuMat gpu_status;
-            d_pyrLK_sparse->calc(g_img_l, g_img_r, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+            d_pyrLK_sparse->calc(g_img_l, g_img_r, cur_gpu_pts, cur_right_gpu_pts, gpu_status, cv::noArray(), cuda_stream);
 
-            cur_right_gpu_pts.download(cur_right_pts);
-            gpu_status.download(status);
+            cur_right_gpu_pts.download(cur_right_pts, cuda_stream);
+            gpu_status.download(status, cuda_stream);
 
             if(FLOW_BACK)
             {   
                 cv::cuda::GpuMat reverseLeft_gpu_Pts;
                 cv::cuda::GpuMat status_gpu_RightLeft;
                 reverseLeft_gpu_Pts = cur_right_gpu_pts;
-                d_pyrLK_sparse_prediction->calc(g_img_r, g_img_l, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
+                d_pyrLK_sparse_prediction->calc(g_img_r, g_img_l, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft, cv::noArray(), cuda_stream);
 
-                reverseLeft_gpu_Pts.download(reverseLeftPts);
-                status_gpu_RightLeft.download(statusRightLeft);
+                reverseLeft_gpu_Pts.download(reverseLeftPts, cuda_stream);
+                status_gpu_RightLeft.download(statusRightLeft, cuda_stream);
+
+                cuda_stream.waitForCompletion();
 
                 for(size_t i = 0; i < status.size(); i++)
                 {
@@ -311,11 +322,11 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
     }
     
-    ccc++;
+    /*ccc++;
     if (ccc>60) {
         ccc=0;
         printf("feature track cost %f ms\n", t_r.toc());
-    }
+    }*/
 
     return featureFrame;
 }

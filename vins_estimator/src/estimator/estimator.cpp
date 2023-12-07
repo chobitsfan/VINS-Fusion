@@ -157,13 +157,14 @@ void Estimator::changeSensorType(int use_imu, int use_stereo)
     }
 }
 
-void Estimator::inputImage(double t, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r)
+void Estimator::inputImage(double t, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r, cv::cuda::Stream& cuda_stream)
 {
-    inputImageCnt++;
+    //inputImageCnt++;
+    static bool skip_nxt=false;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     TicToc featureTrackerTime;
 
-    featureFrame = featureTracker.trackImage(t, g_img_l, g_img_r);
+    featureFrame = featureTracker.trackImage(t, g_img_l, g_img_r, cuda_stream);
     //printf("featureTracker time: %f\n", featureTrackerTime.toc());
 
     if (SHOW_TRACK)
@@ -174,8 +175,10 @@ void Estimator::inputImage(double t, const cv::cuda::GpuMat &g_img_l, const cv::
     
     if(MULTIPLE_THREAD)  
     {     
-        if(inputImageCnt % 2 == 0)
+        //if(inputImageCnt % 2 == 0)
+        if (skip_nxt) skip_nxt=false; else
         {
+            skip_nxt=true;
             mBuf.lock();
             featureBuf.push(make_pair(t, featureFrame));
             mBuf.unlock();
@@ -267,6 +270,7 @@ bool Estimator::IMUAvailable(double t)
 void Estimator::processMeasurements()
 {
     static int ccc=0;
+    std::chrono::milliseconds dura(1);
     while (gogogo)
     {
         //printf("process measurments\n");
@@ -286,7 +290,6 @@ void Estimator::processMeasurements()
                     printf("wait for imu ... \n");
                     if (! MULTIPLE_THREAD)
                         return;
-                    std::chrono::milliseconds dura(5);
                     std::this_thread::sleep_for(dura);
                 }
                 if (!gogogo) return;
@@ -332,18 +335,18 @@ void Estimator::processMeasurements()
             pubTF(*this, header);
             mProcess.unlock();
             
-            ccc++;
-            if (ccc>60) {
-                ccc=0;
-                printf("process measurement cost %f ms, td %f ms\n", t_p.toc(), td);
-            }
+            //ccc++;
+            //if (ccc>60) {
+            //    ccc=0;
+            //    printf("process measurement cost %f ms, td %f ms\n", t_p.toc(), td);
+            //}
         }
 
         if (! MULTIPLE_THREAD)
             break;
 
-        std::chrono::milliseconds dura(2);
-        std::this_thread::sleep_for(dura);
+        //std::chrono::milliseconds dura(1);
+        //std::this_thread::sleep_for(dura);
     }
 }
 
