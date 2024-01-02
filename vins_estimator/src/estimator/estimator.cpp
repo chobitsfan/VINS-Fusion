@@ -159,8 +159,6 @@ void Estimator::changeSensorType(int use_imu, int use_stereo)
 
 void Estimator::inputImage(double t, const cv::cuda::GpuMat &g_img_l, const cv::cuda::GpuMat &g_img_r, cv::cuda::Stream& cuda_stream)
 {
-    //inputImageCnt++;
-    static bool skip_nxt=false;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     TicToc featureTrackerTime;
 
@@ -175,14 +173,9 @@ void Estimator::inputImage(double t, const cv::cuda::GpuMat &g_img_l, const cv::
     
     if(MULTIPLE_THREAD)  
     {     
-        //if(inputImageCnt % 2 == 0)
-        if (skip_nxt) skip_nxt=false; else
-        {
-            skip_nxt=true;
             mBuf.lock();
             featureBuf.push(make_pair(t, featureFrame));
             mBuf.unlock();
-        }
     }
     else
     {

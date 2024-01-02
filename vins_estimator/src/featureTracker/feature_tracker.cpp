@@ -50,6 +50,7 @@ FeatureTracker::FeatureTracker()
     stereo_cam = 0;
     n_id = 0;
     hasPrediction = false;
+    printf("FeatureTracker %d %d\n", MAX_CNT, MIN_DIST);
     detector = cv::cuda::createGoodFeaturesToTrackDetector(CV_8UC1, MAX_CNT, 0.01, MIN_DIST);
     d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 3, 30, false);
     d_pyrLK_sparse_prediction = cv::cuda::SparsePyrLKOpticalFlow::create(cv::Size(21, 21), 1, 30, true);
@@ -192,6 +193,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             cv::Mat n_pts_dl;
             gpu_n_pts.download(n_pts_dl, cuda_stream);
             cuda_stream.waitForCompletion();
+	    //printf("feature cnt %d\n", n_pts_dl.cols); 
             cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(n_pts_dl);
             for (auto &p : n_pts)
             {
