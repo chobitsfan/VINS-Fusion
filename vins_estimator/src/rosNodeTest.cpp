@@ -222,6 +222,7 @@ int main(int argc, char **argv)
 
     readParameters(config_file);
     estimator.setParameter();
+    estimator.send_pose_apm = true;
 
     std::thread sync_thread(sync_process);
 
