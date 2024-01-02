@@ -262,7 +262,7 @@ bool Estimator::IMUAvailable(double t)
 
 void Estimator::processMeasurements()
 {
-    static int ccc=0;
+    //static int ccc=0;
     std::chrono::milliseconds dura(1);
     while (gogogo)
     {

@@ -184,24 +184,26 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         //rejectWithF();
         setMask();
 
-        if (cur_pts.size() < (unsigned int)MAX_CNT)
+	int n_max_cnt = MAX_CNT - cur_pts.size();
+	if (n_max_cnt > 0)
         {
             cv::cuda::GpuMat gpu_mask;
             gpu_mask.upload(mask, cuda_stream);
             cv::cuda::GpuMat gpu_n_pts;
+	    detector->setMaxCorners(n_max_cnt);
             detector->detect(g_img_l, gpu_n_pts, gpu_mask, cuda_stream);
-            cv::Mat n_pts_dl;
-            gpu_n_pts.download(n_pts_dl, cuda_stream);
             cuda_stream.waitForCompletion();
-	    //printf("feature cnt %d\n", n_pts_dl.cols); 
-            cv::Mat_<cv::Point2f> n_pts = cv::Mat_<cv::Point2f>(n_pts_dl);
-            for (auto &p : n_pts)
-            {
-                cur_pts.push_back(p);
-                ids.push_back(n_id++);
-                track_cnt.push_back(1);
-            }
-            //printf("feature cnt after add %d %d %d\n", (int)ids.size(), n_pts_dl.total(), MAX_CNT);
+	    if (gpu_n_pts.cols > 0) {
+		    vector<cv::Point2f> n_pts;
+		    gpu_n_pts.download(n_pts);
+		    for (auto &p : n_pts)
+		    {
+			cur_pts.push_back(p);
+			ids.push_back(n_id++);
+			track_cnt.push_back(1);
+		    }
+		    //printf("feature cnt after add %ld %ld\n", ids.size(), n_pts.size());
+	    }
         }
     }
 
@@ -327,8 +329,8 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     /*ccc++;
     if (ccc>60) {
         ccc=0;
-        printf("feature track cost %f ms\n", t_r.toc());
     }*/
+    //printf("feature track cost %f ms\n", t_r.toc());
 
     return featureFrame;
 }
