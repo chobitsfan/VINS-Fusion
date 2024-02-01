@@ -254,5 +254,7 @@ int main(int argc, char **argv)
 #endif
     ros::spin();
 
+    estimator.gogogo = false;
+
     return 0;
 }

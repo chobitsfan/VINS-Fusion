@@ -174,4 +174,6 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+
+    bool gogogo = true;
 };

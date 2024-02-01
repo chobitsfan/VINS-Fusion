@@ -272,7 +272,7 @@ bool Estimator::IMUAvailable(double t)
 
 void Estimator::processMeasurements()
 {
-    while (1)
+    while (gogogo && MULTIPLE_THREAD)
     {
         //printf("process measurments\n");
         pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > feature;
@@ -281,17 +281,14 @@ void Estimator::processMeasurements()
         {
             feature = featureBuf.front();
             curTime = feature.first + td;
-            while(1)
+            while(gogogo && MULTIPLE_THREAD)
             {
                 if ((!USE_IMU  || IMUAvailable(feature.first + td)))
                     break;
                 else
                 {
                     printf("wait for imu ... \n");
-                    if (! MULTIPLE_THREAD)
-                        return;
-                    std::chrono::milliseconds dura(5);
-                    std::this_thread::sleep_for(dura);
+                    std::this_thread::sleep_for(1ms);
                 }
             }
             mBuf.lock();
@@ -336,11 +333,7 @@ void Estimator::processMeasurements()
             mProcess.unlock();
         }
 
-        if (! MULTIPLE_THREAD)
-            break;
-
-        std::chrono::milliseconds dura(2);
-        std::this_thread::sleep_for(dura);
+        std::this_thread::sleep_for(1ms);
     }
 }
 
