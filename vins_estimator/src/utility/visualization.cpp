@@ -42,9 +42,9 @@ void registerPub(ros::NodeHandle &n)
 {
     //pub_latest_odometry = n.advertise<nav_msgs::Odometry>("imu_propagate", 1000);
     //pub_path = n.advertise<nav_msgs::Path>("path", 1000);
-    pub_odometry = n.advertise<nav_msgs::Odometry>("odometry", 1000);
-    pub_point_cloud = n.advertise<sensor_msgs::PointCloud>("point_cloud", 1000);
-    pub_margin_cloud = n.advertise<sensor_msgs::PointCloud>("margin_cloud", 1000);
+    pub_odometry = n.advertise<nav_msgs::Odometry>("odometry", 10);
+    pub_point_cloud = n.advertise<sensor_msgs::PointCloud>("point_cloud", 10);
+    //pub_margin_cloud = n.advertise<sensor_msgs::PointCloud>("margin_cloud", 1000);
     //pub_key_poses = n.advertise<visualization_msgs::Marker>("key_poses", 1000);
     //pub_camera_pose = n.advertise<nav_msgs::Odometry>("camera_pose", 1000);
     //pub_camera_pose_visual = n.advertise<visualization_msgs::MarkerArray>("camera_pose_visual", 1000);
@@ -309,6 +309,7 @@ void pubPointCloud(const Estimator &estimator, const std_msgs::Header &header)
 
 
     // pub margined potin
+#if 0
     sensor_msgs::PointCloud margin_cloud;
     margin_cloud.header = header;
 
@@ -336,6 +337,7 @@ void pubPointCloud(const Estimator &estimator, const std_msgs::Header &header)
         }
     }
     pub_margin_cloud.publish(margin_cloud);
+#endif
 }
 
 
