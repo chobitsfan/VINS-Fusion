@@ -28,7 +28,7 @@ Estimator::~Estimator()
 
 void Estimator::clearState()
 {
-    //mProcess.lock();
+    mProcess.lock();
     while(!accBuf.empty())
         accBuf.pop();
     while(!gyrBuf.empty())
@@ -89,12 +89,12 @@ void Estimator::clearState()
 
     failure_occur = 0;
 
-    //mProcess.unlock();
+    mProcess.unlock();
 }
 
 void Estimator::setParameter()
 {
-    //mProcess.lock();
+    mProcess.lock();
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         tic[i] = TIC[i];
@@ -116,7 +116,7 @@ void Estimator::setParameter()
         initThreadFlag = true;
         processThread = std::thread(&Estimator::processMeasurements, this);
     }
-    //mProcess.unlock();
+    mProcess.unlock();
 }
 
 void Estimator::changeSensorType(int use_imu, int use_stereo)
@@ -198,26 +198,26 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 
 void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity)
 {
-    //mBuf.lock();
+    mBuf.lock();
     accBuf.push(make_pair(t, linearAcceleration));
     gyrBuf.push(make_pair(t, angularVelocity));
     //printf("input imu with time %f \n", t);
-    //mBuf.unlock();
+    mBuf.unlock();
 
     if (solver_flag == NON_LINEAR)
     {
-        //mPropagate.lock();
+        mPropagate.lock();
         fastPredictIMU(t, linearAcceleration, angularVelocity);
-        pubLatestOdometry(latest_P, latest_Q, latest_V, t);
-        //mPropagate.unlock();
+        //pubLatestOdometry(latest_P, latest_Q, latest_V, t);
+        mPropagate.unlock();
     }
 }
 
 void Estimator::inputFeature(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &featureFrame)
 {
-    //mBuf.lock();
+    mBuf.lock();
     featureBuf.push(make_pair(t, featureFrame));
-    //mBuf.unlock();
+    mBuf.unlock();
 
     if(!MULTIPLE_THREAD) {
         //auto start_ts = std::chrono::steady_clock::now();
@@ -272,7 +272,8 @@ bool Estimator::IMUAvailable(double t)
 
 void Estimator::processMeasurements()
 {
-    while (gogogo && MULTIPLE_THREAD)
+    static unsigned int ccc = 0;
+    while (gogogo)
     {
         //printf("process measurments\n");
         pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > feature;
@@ -281,22 +282,28 @@ void Estimator::processMeasurements()
         {
             feature = featureBuf.front();
             curTime = feature.first + td;
-            while(gogogo && MULTIPLE_THREAD)
+            while(gogogo)
             {
                 if ((!USE_IMU  || IMUAvailable(feature.first + td)))
                     break;
                 else
                 {
+                    if (!MULTIPLE_THREAD) return;
                     printf("wait for imu ... \n");
                     std::this_thread::sleep_for(1ms);
                 }
             }
-            //mBuf.lock();
+
+            std::chrono::time_point<std::chrono::steady_clock> start_ts;
+            ccc++;
+            if (ccc > 60) start_ts = std::chrono::steady_clock::now();
+
+            mBuf.lock();
             if(USE_IMU)
                 getIMUInterval(prevTime, curTime, accVector, gyrVector);
 
             featureBuf.pop();
-            //mBuf.unlock();
+            mBuf.unlock();
 
             if(USE_IMU)
             {
@@ -314,11 +321,15 @@ void Estimator::processMeasurements()
                     processIMU(accVector[i].first, dt, accVector[i].second, gyrVector[i].second);
                 }
             }
-            //mProcess.lock();
+            mProcess.lock();
             processImage(feature.second, feature.first);
             prevTime = curTime;
 
             //printStatistics(*this, 0);
+            if (ccc > 60) {
+                ccc = 0;
+                cout << "pose est cost " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count() << " ms\n";
+            }
 
             std_msgs::Header header;
             header.frame_id = "world";
@@ -330,10 +341,10 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             //pubKeyframe(*this);
             pubTF(*this, header);
-            //mProcess.unlock();
+            mProcess.unlock();
         }
 
-        std::this_thread::sleep_for(1ms);
+        if (MULTIPLE_THREAD) std::this_thread::sleep_for(1ms); else break;
     }
 }
 
@@ -1637,7 +1648,7 @@ void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Ei
 
 void Estimator::updateLatestStates()
 {
-    //mPropagate.lock();
+    mPropagate.lock();
     latest_time = Headers[frame_count] + td;
     latest_P = Ps[frame_count];
     latest_Q = Rs[frame_count];
@@ -1646,10 +1657,10 @@ void Estimator::updateLatestStates()
     latest_Bg = Bgs[frame_count];
     latest_acc_0 = acc_0;
     latest_gyr_0 = gyr_0;
-    //mBuf.lock();
+    mBuf.lock();
     queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
     queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
-    //mBuf.unlock();
+    mBuf.unlock();
     while(!tmp_accBuf.empty())
     {
         double t = tmp_accBuf.front().first;
@@ -1659,5 +1670,5 @@ void Estimator::updateLatestStates()
         tmp_accBuf.pop();
         tmp_gyrBuf.pop();
     }
-    //mPropagate.unlock();
+    mPropagate.unlock();
 }

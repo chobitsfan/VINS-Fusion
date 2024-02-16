@@ -168,8 +168,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
     double t = feature_msg->header.stamp.toSec();
-    //estimator.inputFeature(t, featureFrame);
-    estimator.processMeasurements2(t, featureFrame);
+    estimator.inputFeature(t, featureFrame);
     return;
 }
 
