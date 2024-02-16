@@ -28,7 +28,7 @@ Estimator::~Estimator()
 
 void Estimator::clearState()
 {
-    mProcess.lock();
+    //mProcess.lock();
     while(!accBuf.empty())
         accBuf.pop();
     while(!gyrBuf.empty())
@@ -89,12 +89,12 @@ void Estimator::clearState()
 
     failure_occur = 0;
 
-    mProcess.unlock();
+    //mProcess.unlock();
 }
 
 void Estimator::setParameter()
 {
-    mProcess.lock();
+    //mProcess.lock();
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
         tic[i] = TIC[i];
@@ -116,7 +116,7 @@ void Estimator::setParameter()
         initThreadFlag = true;
         processThread = std::thread(&Estimator::processMeasurements, this);
     }
-    mProcess.unlock();
+    //mProcess.unlock();
 }
 
 void Estimator::changeSensorType(int use_imu, int use_stereo)
@@ -321,7 +321,7 @@ void Estimator::processMeasurements()
                     processIMU(accVector[i].first, dt, accVector[i].second, gyrVector[i].second);
                 }
             }
-            mProcess.lock();
+            //mProcess.lock();
             processImage(feature.second, feature.first);
             prevTime = curTime;
 
@@ -341,7 +341,7 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             //pubKeyframe(*this);
             pubTF(*this, header);
-            mProcess.unlock();
+            //mProcess.unlock();
         }
 
         if (MULTIPLE_THREAD) std::this_thread::sleep_for(1ms); else break;
@@ -1648,6 +1648,10 @@ void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Ei
 
 void Estimator::updateLatestStates()
 {
+    mBuf.lock();
+    queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
+    queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
+    mBuf.unlock();
     mPropagate.lock();
     latest_time = Headers[frame_count] + td;
     latest_P = Ps[frame_count];
@@ -1657,10 +1661,6 @@ void Estimator::updateLatestStates()
     latest_Bg = Bgs[frame_count];
     latest_acc_0 = acc_0;
     latest_gyr_0 = gyr_0;
-    mBuf.lock();
-    queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
-    queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
-    mBuf.unlock();
     while(!tmp_accBuf.empty())
     {
         double t = tmp_accBuf.front().first;

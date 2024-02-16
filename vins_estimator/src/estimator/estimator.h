@@ -93,7 +93,7 @@ class Estimator
         MARGIN_SECOND_NEW = 1
     };
 
-    std::mutex mProcess;
+    //std::mutex mProcess;
     std::mutex mBuf;
     std::mutex mPropagate;
     queue<pair<double, Eigen::Vector3d>> accBuf;
