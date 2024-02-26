@@ -15,8 +15,6 @@
 #include <thread>
 #include <mutex>
 #include <ros/ros.h>
-#include <cv_bridge/cv_bridge.h>
-#include <opencv2/opencv.hpp>
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
@@ -25,112 +23,6 @@ Estimator estimator;
 
 queue<sensor_msgs::ImuConstPtr> imu_buf;
 queue<sensor_msgs::PointCloudConstPtr> feature_buf;
-queue<sensor_msgs::ImageConstPtr> img0_buf;
-queue<sensor_msgs::ImageConstPtr> img1_buf;
-std::mutex m_buf;
-
-
-void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
-{
-    m_buf.lock();
-    img0_buf.push(img_msg);
-    m_buf.unlock();
-}
-
-void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
-{
-    m_buf.lock();
-    img1_buf.push(img_msg);
-    m_buf.unlock();
-}
-
-
-cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
-{
-    cv_bridge::CvImageConstPtr ptr;
-    if (img_msg->encoding == "8UC1")
-    {
-        sensor_msgs::Image img;
-        img.header = img_msg->header;
-        img.height = img_msg->height;
-        img.width = img_msg->width;
-        img.is_bigendian = img_msg->is_bigendian;
-        img.step = img_msg->step;
-        img.data = img_msg->data;
-        img.encoding = "mono8";
-        ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
-    }
-    else
-        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
-
-    cv::Mat img = ptr->image.clone();
-    return img;
-}
-
-// extract images with same timestamp from two topics
-void sync_process()
-{
-    while(1)
-    {
-        if(STEREO)
-        {
-            cv::Mat image0, image1;
-            std_msgs::Header header;
-            double time = 0;
-            m_buf.lock();
-            if (!img0_buf.empty() && !img1_buf.empty())
-            {
-                double time0 = img0_buf.front()->header.stamp.toSec();
-                double time1 = img1_buf.front()->header.stamp.toSec();
-                // 0.003s sync tolerance
-                if(time0 < time1 - 0.003)
-                {
-                    img0_buf.pop();
-                    printf("throw img0\n");
-                }
-                else if(time0 > time1 + 0.003)
-                {
-                    img1_buf.pop();
-                    printf("throw img1\n");
-                }
-                else
-                {
-                    time = img0_buf.front()->header.stamp.toSec();
-                    header = img0_buf.front()->header;
-                    image0 = getImageFromMsg(img0_buf.front());
-                    img0_buf.pop();
-                    image1 = getImageFromMsg(img1_buf.front());
-                    img1_buf.pop();
-                    //printf("find img0 and img1\n");
-                }
-            }
-            m_buf.unlock();
-            if(!image0.empty())
-                estimator.inputImage(time, image0, image1);
-        }
-        else
-        {
-            cv::Mat image;
-            std_msgs::Header header;
-            double time = 0;
-            m_buf.lock();
-            if(!img0_buf.empty())
-            {
-                time = img0_buf.front()->header.stamp.toSec();
-                header = img0_buf.front()->header;
-                image = getImageFromMsg(img0_buf.front());
-                img0_buf.pop();
-            }
-            m_buf.unlock();
-            if(!image.empty())
-                estimator.inputImage(time, image);
-        }
-
-        std::chrono::milliseconds dura(2);
-        std::this_thread::sleep_for(dura);
-    }
-}
-
 
 void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 {
@@ -243,15 +135,7 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 100, imu_callback, ros::TransportHints().tcpNoDelay());
     ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 10, feature_callback);
-#if 0
-    ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, img0_callback);
-    ros::Subscriber sub_img1 = n.subscribe(IMAGE1_TOPIC, 100, img1_callback);
-    ros::Subscriber sub_restart = n.subscribe("/vins_restart", 100, restart_callback);
-    ros::Subscriber sub_imu_switch = n.subscribe("/vins_imu_switch", 100, imu_switch_callback);
-    ros::Subscriber sub_cam_switch = n.subscribe("/vins_cam_switch", 100, cam_switch_callback);
 
-    std::thread sync_thread{sync_process};
-#endif
     ros::spin();
 
     estimator.gogogo = false;
