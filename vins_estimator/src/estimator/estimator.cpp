@@ -273,6 +273,7 @@ bool Estimator::IMUAvailable(double t)
 void Estimator::processMeasurements()
 {
     static unsigned int ccc = 0;
+    unsigned int wait_imu_c = 0;
     while (gogogo)
     {
         //printf("process measurments\n");
@@ -284,12 +285,12 @@ void Estimator::processMeasurements()
             curTime = feature.first + td;
             while(gogogo)
             {
-                if ((!USE_IMU  || IMUAvailable(feature.first + td)))
+                if ((!USE_IMU  || IMUAvailable(feature.first + td))) {
+                    wait_imu_c = 0;
                     break;
-                else
-                {
+                } else {
                     if (!MULTIPLE_THREAD) return;
-                    printf("wait for imu ... \n");
+                    printf("wait for imu, count=%d, td=%f\n", ++wait_imu_c, td);
                     std::this_thread::sleep_for(1ms);
                 }
             }
