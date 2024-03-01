@@ -29,46 +29,6 @@
 
 double buf[BUF_SZ/sizeof(double)];
 
-/*void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
-{
-    double t = imu_msg->header.stamp.toSec();
-    double dx = imu_msg->linear_acceleration.x;
-    double dy = imu_msg->linear_acceleration.y;
-    double dz = imu_msg->linear_acceleration.z;
-    double rx = imu_msg->angular_velocity.x;
-    double ry = imu_msg->angular_velocity.y;
-    double rz = imu_msg->angular_velocity.z;
-    Vector3d acc(dx, dy, dz);
-    Vector3d gyr(rx, ry, rz);
-    estimator.inputIMU(t, acc, gyr);
-    return;
-}
-
-
-void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
-{
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-    for (unsigned int i = 0; i < feature_msg->points.size(); i++)
-    {
-        int feature_id = feature_msg->channels[0].values[i];
-        int camera_id = feature_msg->channels[1].values[i];
-        double x = feature_msg->points[i].x;
-        double y = feature_msg->points[i].y;
-        double z = feature_msg->points[i].z;
-        double p_u = feature_msg->channels[2].values[i];
-        double p_v = feature_msg->channels[3].values[i];
-        double velocity_x = feature_msg->channels[4].values[i];
-        double velocity_y = feature_msg->channels[5].values[i];
-        //cout << "feature " << feature_id << "," << camera_id << "," << p_u << "," << p_v << "," << velocity_x << "," << velocity_y << "\n";
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-        featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
-    }
-    double t = feature_msg->header.stamp.toSec();
-    estimator.inputFeature(t, featureFrame);
-    return;
-}*/
-
 void sig_func(int sig) {}
 
 int main(int argc, char **argv)
@@ -134,9 +94,6 @@ int main(int argc, char **argv)
 
     registerPub(n);
 
-    //ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 100, imu_callback, ros::TransportHints().tcpNoDelay());
-    //ros::Subscriber sub_feature = n.subscribe("/feature_tracker/feature", 10, feature_callback);
-    //ros::spin();
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
     while (true) {
@@ -156,14 +113,11 @@ int main(int argc, char **argv)
                     //printf("rcv %d bytes, %d features\n", len, num);
                     double t = features_data[1];
                     features_data += 2;
-                    //map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
                     featureFrame.clear();
                     for (int i = 0; i < num; ++i) {
                         int id = features_data[0];
-                        //Eigen::Matrix<double, 7, 1> l_xyz_uv_velocity {features_data[1], features_data[2], 1, features_data[3], features_data[4], features_data[5], features_data[6]};
                         xyz_uv_velocity << features_data[1], features_data[2], 1, features_data[3], features_data[4], features_data[5], features_data[6];
                         featureFrame[id].emplace_back(0,  xyz_uv_velocity);
-                        //Eigen::Matrix<double, 7, 1> r_xyz_uv_velocity {features_data[7], features_data[8], 1, features_data[9], features_data[10], features_data[11], features_data[12]};
                         xyz_uv_velocity << features_data[7], features_data[8], 1, features_data[9], features_data[10], features_data[11], features_data[12];
                         featureFrame[id].emplace_back(1,  xyz_uv_velocity);
                         features_data += 13;
