@@ -22,7 +22,7 @@ Estimator::~Estimator()
     if (MULTIPLE_THREAD)
     {
         processThread.join();
-        printf("join thread \n");
+        printf("process thread finished\n");
     }
 }
 
