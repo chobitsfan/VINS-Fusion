@@ -9,14 +9,14 @@
 
 #pragma once
 
-#include <ros/ros.h>
 #include <vector>
 #include <eigen3/Eigen/Dense>
-#include "../utility/utility.h"
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <fstream>
 #include <map>
+#include "../utility/utility.h"
+#include "../fake_ros.h"
 
 using namespace std;
 

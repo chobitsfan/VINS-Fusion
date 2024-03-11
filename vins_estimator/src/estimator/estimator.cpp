@@ -108,7 +108,6 @@ void Estimator::setParameter()
     td = TD;
     g = G;
     cout << "set g " << g.transpose() << endl;
-    featureTracker.readIntrinsicParameter(CAM_NAMES);
 
     std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
     if (MULTIPLE_THREAD && !initThreadFlag)
@@ -159,41 +158,6 @@ void Estimator::changeSensorType(int use_imu, int use_stereo)
 
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
-    inputImageCnt++;
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-    TicToc featureTrackerTime;
-
-    if(_img1.empty())
-        featureFrame = featureTracker.trackImage(t, _img);
-    else
-        featureFrame = featureTracker.trackImage(t, _img, _img1);
-    //printf("featureTracker time: %f\n", featureTrackerTime.toc());
-
-    if (SHOW_TRACK)
-    {
-        cv::Mat imgTrack = featureTracker.getTrackImage();
-        pubTrackImage(imgTrack, t);
-    }
-    
-    if(MULTIPLE_THREAD)  
-    {     
-        if(inputImageCnt % 2 == 0)
-        {
-            //mBuf.lock();
-            featureBuf.push(make_pair(t, featureFrame));
-            //mBuf.unlock();
-        }
-    }
-    else
-    {
-        //mBuf.lock();
-        featureBuf.push(make_pair(t, featureFrame));
-        //mBuf.unlock();
-        TicToc processTime;
-        processMeasurements();
-        printf("process time: %f\n", processTime.toc());
-    }
-    
 }
 
 void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity)
@@ -332,79 +296,14 @@ void Estimator::processMeasurements()
                 cout << "pose est cost " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count() << " ms\n";
             }
 
-            std_msgs::Header header;
-            header.frame_id = "world";
-            header.stamp = ros::Time(feature.first);
+            pubOdometry(*this);
 
-            pubOdometry(*this, header);
-            //pubKeyPoses(*this, header);
-            //pubCameraPose(*this, header);
-            pubPointCloud(*this, header);
-            //pubKeyframe(*this);
-            pubTF(*this, header);
             //mProcess.unlock();
         }
 
         if (MULTIPLE_THREAD) std::this_thread::sleep_for(1ms); else break;
     }
 }
-
-void Estimator::processMeasurements2(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &feature)
-{
-    static unsigned int ccc = 0;
-    vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
-
-    curTime = t + td;
-    if (!IMUAvailable(t + td)) {
-        printf("wait for imu ...\n");
-        return;
-    }
-
-    std::chrono::time_point<std::chrono::steady_clock> start_ts;
-    ccc++;
-    if (ccc > 60) start_ts = std::chrono::steady_clock::now();
-
-    if(USE_IMU)
-        getIMUInterval(prevTime, curTime, accVector, gyrVector);
-
-    if(USE_IMU)
-    {
-        if(!initFirstPoseFlag)
-            initFirstIMUPose(accVector);
-        for(size_t i = 0; i < accVector.size(); i++)
-        {
-            double dt;
-            if(i == 0)
-                dt = accVector[i].first - prevTime;
-            else if (i == accVector.size() - 1)
-                dt = curTime - accVector[i - 1].first;
-            else
-                dt = accVector[i].first - accVector[i - 1].first;
-            processIMU(accVector[i].first, dt, accVector[i].second, gyrVector[i].second);
-        }
-    }
-    processImage(feature, t);
-    prevTime = curTime;
-
-    if (ccc > 60) {
-        ccc = 0;
-        cout << "pose est cost " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count() << " ms\n";
-    }
-
-    //printStatistics(*this, 0);
-
-    std_msgs::Header header;
-    header.frame_id = "world";
-    header.stamp = ros::Time(t);
-
-    pubOdometry(*this, header);
-    //pubKeyPoses(*this, header);
-    //pubCameraPose(*this, header);
-    pubPointCloud(*this, header);
-    //pubKeyframe(*this);
-    pubTF(*this, header);
-}
-
 
 void Estimator::initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector)
 {
@@ -608,11 +507,6 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         set<int> removeIndex;
         outliersRejection(removeIndex);
         f_manager.removeOutlier(removeIndex);
-        if (! MULTIPLE_THREAD)
-        {
-            featureTracker.removeOutliers(removeIndex);
-            predictPtsInNextFrame();
-        }
             
         ROS_DEBUG("solver costs: %fms", t_solve.toc());
 
@@ -1523,41 +1417,6 @@ void Estimator::getPoseInWorldFrame(int index, Eigen::Matrix4d &T)
     T = Eigen::Matrix4d::Identity();
     T.block<3, 3>(0, 0) = Rs[index];
     T.block<3, 1>(0, 3) = Ps[index];
-}
-
-void Estimator::predictPtsInNextFrame()
-{
-    //printf("predict pts in next frame\n");
-    if(frame_count < 2)
-        return;
-    // predict next pose. Assume constant velocity motion
-    Eigen::Matrix4d curT, prevT, nextT;
-    getPoseInWorldFrame(curT);
-    getPoseInWorldFrame(frame_count - 1, prevT);
-    nextT = curT * (prevT.inverse() * curT);
-    map<int, Eigen::Vector3d> predictPts;
-
-    for (auto &it_per_id : f_manager.feature)
-    {
-        if(it_per_id.estimated_depth > 0)
-        {
-            int firstIndex = it_per_id.start_frame;
-            int lastIndex = it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
-            //printf("cur frame index  %d last frame index %d\n", frame_count, lastIndex);
-            if((int)it_per_id.feature_per_frame.size() >= 2 && lastIndex == frame_count)
-            {
-                double depth = it_per_id.estimated_depth;
-                Vector3d pts_j = ric[0] * (depth * it_per_id.feature_per_frame[0].point) + tic[0];
-                Vector3d pts_w = Rs[firstIndex] * pts_j + Ps[firstIndex];
-                Vector3d pts_local = nextT.block<3, 3>(0, 0).transpose() * (pts_w - nextT.block<3, 1>(0, 3));
-                Vector3d pts_cam = ric[0].transpose() * (pts_local - tic[0]);
-                int ptsIndex = it_per_id.feature_id;
-                predictPts[ptsIndex] = pts_cam;
-            }
-        }
-    }
-    featureTracker.setPrediction(predictPts);
-    //printf("estimator output %d predict pts\n",(int)predictPts.size());
 }
 
 double Estimator::reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, Vector3d &tici,

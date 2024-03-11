@@ -14,7 +14,6 @@
 #include <iostream>
 #include "../factor/imu_factor.h"
 #include "../utility/utility.h"
-#include <ros/ros.h>
 #include <map>
 #include "../estimator/feature_manager.h"
 

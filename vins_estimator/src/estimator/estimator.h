@@ -34,8 +34,7 @@
 #include "../factor/projectionTwoFrameOneCamFactor.h"
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
-#include "../featureTracker/feature_tracker.h"
-
+#include "../fake_ros.h"
 
 class Estimator
 {
@@ -52,7 +51,6 @@ class Estimator
     void processIMU(double t, double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
     void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header);
     void processMeasurements();
-    void processMeasurements2(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &feature);
     void changeSensorType(int use_imu, int use_stereo);
 
     // internal
@@ -71,7 +69,6 @@ class Estimator
                                               vector<pair<double, Eigen::Vector3d>> &gyrVector);
     void getPoseInWorldFrame(Eigen::Matrix4d &T);
     void getPoseInWorldFrame(int index, Eigen::Matrix4d &T);
-    void predictPtsInNextFrame();
     void outliersRejection(set<int> &removeIndex);
     double reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, Vector3d &tici,
                                      Matrix3d &Rj, Vector3d &Pj, Matrix3d &ricj, Vector3d &ticj, 
@@ -103,8 +100,6 @@ class Estimator
     bool openExEstimation;
 
     std::thread processThread;
-
-    FeatureTracker featureTracker;
 
     SolverFlag solver_flag;
     MarginalizationFlag  marginalization_flag;

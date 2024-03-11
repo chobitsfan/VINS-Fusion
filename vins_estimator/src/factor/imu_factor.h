@@ -8,13 +8,13 @@
  *******************************************************/
 
 #pragma once
-#include <ros/assert.h>
 #include <iostream>
 #include <eigen3/Eigen/Dense>
 
 #include "../utility/utility.h"
 #include "../estimator/parameters.h"
 #include "integration_base.h"
+#include "../fake_ros.h"
 
 #include <ceres/ceres.h>
 

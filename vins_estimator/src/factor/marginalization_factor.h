@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include <ros/ros.h>
-#include <ros/console.h>
 #include <cstdlib>
 #include <pthread.h>
 #include <ceres/ceres.h>
@@ -18,6 +16,7 @@
 
 #include "../utility/utility.h"
 #include "../utility/tic_toc.h"
+#include "../fake_ros.h"
 
 const int NUM_THREADS = 4;
 
