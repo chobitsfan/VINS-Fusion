@@ -18,6 +18,8 @@
 #include <sys/un.h>
 #include <poll.h>
 #include <signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
@@ -27,7 +29,10 @@
 
 #define BUF_SZ 12*1024
 
+bool gogogo = true;
 double buf[BUF_SZ/sizeof(double)];
+int pub_sock = 0;
+struct sockaddr_in pub_addr;
 
 void sig_func(int sig) {}
 
@@ -35,7 +40,7 @@ int main(int argc, char **argv)
 {
     Estimator estimator;
 
-    struct pollfd pfds[2];
+    struct pollfd pfds[3];
     int imu_sock, features_sock;
     struct sockaddr_un ipc_addr;
     if ((imu_sock = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0) {
@@ -61,10 +66,24 @@ int main(int argc, char **argv)
         printf("bind local failed\n");
         return 1;
     }
+
+    struct sockaddr_in srv_addr;
+    pub_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    memset(&srv_addr, 0, sizeof(srv_addr));
+    srv_addr.sin_family = AF_INET;
+    srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    srv_addr.sin_port = htons(8800);
+    if (bind(pub_sock, (const struct sockaddr *)&srv_addr, sizeof(srv_addr)) < 0 ) {
+        perror("bind failed");
+    }
+    memset(&pub_addr, 0, sizeof(pub_addr));
+
     pfds[0].fd= imu_sock;
     pfds[0].events = POLLIN;
     pfds[1].fd= features_sock;
     pfds[1].events = POLLIN;
+    pfds[2].fd= pub_sock;
+    pfds[2].events = POLLIN;
 
     signal(SIGINT, sig_func);
 
@@ -93,7 +112,7 @@ int main(int argc, char **argv)
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
     while (true) {
-        if (poll(pfds, 2, -1) > 0) {
+        if (poll(pfds, 3, -1) > 0) {
             if (pfds[0].revents & POLLIN) {
                 if (recv(imu_sock, buf, BUF_SZ, 0) > 0) {
                     Vector3d acc(buf[1], buf[2], buf[3]);
@@ -121,10 +140,16 @@ int main(int argc, char **argv)
                     estimator.inputFeature(t, featureFrame);
                 }
             }
+            if (pfds[2].revents & POLLIN) {
+                socklen_t addrlen = sizeof(struct sockaddr_in);
+                if (recvfrom(pub_sock, buf, 8, 0, (struct sockaddr*)&pub_addr, &addrlen) > 0) {
+                    printf("debug client inc\n");
+                }
+            }
         } else break;
     }
 
-    estimator.gogogo = false;
+    gogogo = false;
 
     unlink(IMU_SOCK_PATH);
     unlink(FEATURES_SOCK_PATH);

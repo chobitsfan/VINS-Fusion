@@ -10,6 +10,8 @@
 #include "estimator.h"
 #include "../utility/visualization.h"
 
+extern bool gogogo;
+
 Estimator::Estimator(): f_manager{Rs}
 {
     ROS_INFO("init begins");

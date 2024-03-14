@@ -11,11 +11,15 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <arpa/inet.h>
+#include <errno.h>
 
-using namespace Eigen;
-
-struct sockaddr_un chobits_addr, chobits_local_addr;
+static struct sockaddr_un chobits_addr, chobits_local_addr;
 static int chobits_sock;
+extern int pub_sock;
+extern struct sockaddr_in pub_addr;
 
 void registerPub()
 {
@@ -41,9 +45,20 @@ void pubOdometry(const Estimator &estimator)
         double vy = estimator.Vs[WINDOW_SIZE].y();
         double vz = estimator.Vs[WINDOW_SIZE].z();
 
-        Quaterniond tmp_Q = Quaterniond(estimator.Rs[WINDOW_SIZE]);
+        Eigen::Quaterniond q = Eigen::Quaterniond(estimator.Rs[WINDOW_SIZE]);
+        double qx = q.x();
+        double qy = q.y();
+        double qz = q.z();
+        double qw = q.w();
 
-        float chobits_msg[10] = { (float)tmp_Q.w(), (float)tmp_Q.x(), (float)tmp_Q.y(), (float)tmp_Q.z(), (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
+        float chobits_msg[10] = { (float)qw, (float)qx, (float)qy, (float)qz, (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
         sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
+
+        if (pub_addr.sin_family == AF_INET) {
+            double odo_msg[] = {0, px, py, pz, qx, qy, qz, qw, vx, vy, vz};
+            if (sendto(pub_sock, odo_msg, sizeof(odo_msg), 0, (struct sockaddr*)&pub_addr, sizeof(pub_addr)) < 0) {
+                perror("sendto failed");
+            }
+        }
     }
 }
