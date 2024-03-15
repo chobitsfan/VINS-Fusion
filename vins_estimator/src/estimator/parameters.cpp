@@ -27,24 +27,13 @@ int ESTIMATE_EXTRINSIC;
 int ESTIMATE_TD;
 int ROLLING_SHUTTER;
 std::string EX_CALIB_RESULT_PATH;
-std::string VINS_RESULT_PATH;
 std::string OUTPUT_FOLDER;
-std::string IMU_TOPIC;
-int ROW, COL;
 double TD;
 int NUM_OF_CAM;
 int STEREO;
 int USE_IMU;
 int MULTIPLE_THREAD;
 map<int, Eigen::Vector3d> pts_gt;
-std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
-std::string FISHEYE_MASK;
-std::vector<std::string> CAM_NAMES;
-int MAX_CNT;
-int MIN_DIST;
-double F_THRESHOLD;
-int SHOW_TRACK;
-int FLOW_BACK;
 
 void readParameters(std::string config_file)
 {
@@ -61,22 +50,12 @@ void readParameters(std::string config_file)
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
-    fsSettings["image0_topic"] >> IMAGE0_TOPIC;
-    fsSettings["image1_topic"] >> IMAGE1_TOPIC;
-    MAX_CNT = fsSettings["max_cnt"];
-    MIN_DIST = fsSettings["min_dist"];
-    F_THRESHOLD = fsSettings["F_threshold"];
-    SHOW_TRACK = fsSettings["show_track"];
-    FLOW_BACK = fsSettings["flow_back"];
-
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
     USE_IMU = fsSettings["imu"];
     printf("USE_IMU: %d\n", USE_IMU);
     if(USE_IMU)
     {
-        fsSettings["imu_topic"] >> IMU_TOPIC;
-        printf("IMU_TOPIC: %s\n", IMU_TOPIC.c_str());
         ACC_N = fsSettings["acc_n"];
         ACC_W = fsSettings["acc_w"];
         GYR_N = fsSettings["gyr_n"];
@@ -90,10 +69,6 @@ void readParameters(std::string config_file)
     MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
 
     fsSettings["output_path"] >> OUTPUT_FOLDER;
-    VINS_RESULT_PATH = OUTPUT_FOLDER + "/vio.csv";
-    std::cout << "result path " << VINS_RESULT_PATH << std::endl;
-    std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
-    fout.close();
 
     ESTIMATE_EXTRINSIC = fsSettings["estimate_extrinsic"];
     if (ESTIMATE_EXTRINSIC == 2)
@@ -134,19 +109,9 @@ void readParameters(std::string config_file)
     int pn = config_file.find_last_of('/');
     std::string configPath = config_file.substr(0, pn);
     
-    std::string cam0Calib;
-    fsSettings["cam0_calib"] >> cam0Calib;
-    std::string cam0Path = configPath + "/" + cam0Calib;
-    CAM_NAMES.push_back(cam0Path);
-
     if(NUM_OF_CAM == 2)
     {
         STEREO = 1;
-        std::string cam1Calib;
-        fsSettings["cam1_calib"] >> cam1Calib;
-        std::string cam1Path = configPath + "/" + cam1Calib; 
-        //printf("%s cam1 path\n", cam1Path.c_str() );
-        CAM_NAMES.push_back(cam1Path);
         
         cv::Mat cv_T;
         fsSettings["body_T_cam1"] >> cv_T;
@@ -166,10 +131,6 @@ void readParameters(std::string config_file)
         ROS_INFO_STREAM("Unsynchronized sensors, online estimate time offset, initial td: " << TD);
     else
         ROS_INFO_STREAM("Synchronized sensors, fix time offset: " << TD);
-
-    ROW = fsSettings["image_height"];
-    COL = fsSettings["image_width"];
-    ROS_INFO("ROW: %d COL: %d ", ROW, COL);
 
     if(!USE_IMU)
     {

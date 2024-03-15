@@ -41,28 +41,16 @@ extern double BIAS_GYR_THRESHOLD;
 extern double SOLVER_TIME;
 extern int NUM_ITERATIONS;
 extern std::string EX_CALIB_RESULT_PATH;
-extern std::string VINS_RESULT_PATH;
 extern std::string OUTPUT_FOLDER;
-extern std::string IMU_TOPIC;
 extern double TD;
 extern int ESTIMATE_TD;
 extern int ROLLING_SHUTTER;
-extern int ROW, COL;
 extern int NUM_OF_CAM;
 extern int STEREO;
 extern int USE_IMU;
 extern int MULTIPLE_THREAD;
 // pts_gt for debug purpose;
 extern map<int, Eigen::Vector3d> pts_gt;
-
-extern std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
-extern std::string FISHEYE_MASK;
-extern std::vector<std::string> CAM_NAMES;
-extern int MAX_CNT;
-extern int MIN_DIST;
-extern double F_THRESHOLD;
-extern int SHOW_TRACK;
-extern int FLOW_BACK;
 
 void readParameters(std::string config_file);
 
