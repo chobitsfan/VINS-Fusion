@@ -61,4 +61,29 @@ void pubOdometry(const Estimator &estimator)
             }
         }
     }
+
+    if (pub_addr.sin_family == AF_INET) {
+        float pp_msg[40*3+1];
+        float* pp_msg_ptr = pp_msg;
+        int c = 0;
+        for (auto &it_per_id : estimator.f_manager.feature)
+        {
+            int used_num;
+            used_num = it_per_id.feature_per_frame.size();
+            if (!(used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
+                continue;
+            if (it_per_id.start_frame > WINDOW_SIZE * 3.0 / 4.0 || it_per_id.solve_flag != 1)
+                continue;
+            int imu_i = it_per_id.start_frame;
+            Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+            Vector3d w_pts_i = estimator.Rs[imu_i] * (estimator.ric[0] * pts_i + estimator.tic[0]) + estimator.Ps[imu_i];
+            *++pp_msg_ptr = w_pts_i(0);
+            *++pp_msg_ptr = w_pts_i(1);
+            *++pp_msg_ptr = w_pts_i(2);
+            ++c;
+            if (c >= 40) break;
+        }
+        pp_msg[0] = c;
+        sendto(pub_sock, pp_msg, sizeof(pp_msg), 0, (struct sockaddr*)&pub_addr, sizeof(pub_addr));
+    }
 }
