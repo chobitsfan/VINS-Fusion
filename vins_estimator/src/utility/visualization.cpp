@@ -61,7 +61,7 @@ void pubOdometry(const Estimator &estimator)
             }
         }
     }
-
+#ifdef SEND_FEATURES
     if (pub_addr.sin_family == AF_INET) {
         float pp_msg[40*3+1];
         float* pp_msg_ptr = pp_msg;
@@ -86,4 +86,5 @@ void pubOdometry(const Estimator &estimator)
         pp_msg[0] = c;
         sendto(pub_sock, pp_msg, sizeof(pp_msg), 0, (struct sockaddr*)&pub_addr, sizeof(pub_addr));
     }
+#endif
 }
