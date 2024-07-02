@@ -68,6 +68,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
             f_per_fra.rightObservation(id_pts.second[1].second);
             assert(id_pts.second[1].first == 1);
         }
+        double depth = id_pts.second[0].second(2);
 
         int feature_id = id_pts.first;
         auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)
@@ -77,7 +78,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
 
         if (it == feature.end())
         {
-            feature.push_back(FeaturePerId(feature_id, frame_count));
+            feature.push_back(FeaturePerId(feature_id, frame_count, depth));
             feature.back().feature_per_frame.push_back(f_per_fra);
             new_feature_num++;
         }

@@ -15,7 +15,7 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <errno.h>
-
+#define SEND_FEATURES
 static struct sockaddr_un chobits_addr, chobits_local_addr;
 static int chobits_sock;
 extern int pub_sock;

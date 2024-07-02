@@ -30,7 +30,7 @@ class FeaturePerFrame
     {
         point.x() = _point(0);
         point.y() = _point(1);
-        point.z() = _point(2);
+        point.z() = 1;
         uv.x() = _point(3);
         uv.y() = _point(4);
         velocity.x() = _point(5); 
@@ -66,9 +66,9 @@ class FeaturePerId
     double estimated_depth;
     int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
 
-    FeaturePerId(int _feature_id, int _start_frame)
+    FeaturePerId(int _feature_id, int _start_frame, double _depth)
         : feature_id(_feature_id), start_frame(_start_frame),
-          used_num(0), estimated_depth(-1.0), solve_flag(0)
+          used_num(0), estimated_depth(_depth), solve_flag(0)
     {
     }
 
