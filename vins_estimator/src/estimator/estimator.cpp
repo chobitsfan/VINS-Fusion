@@ -501,7 +501,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     }
     else
     {
-        TicToc t_solve;
+        //TicToc t_solve;
         if(!USE_IMU)
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
@@ -510,7 +510,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         outliersRejection(removeIndex);
         f_manager.removeOutlier(removeIndex);
             
-        ROS_DEBUG("solver costs: %fms", t_solve.toc());
+        //ROS_DEBUG("solver costs: %fms", t_solve.toc());
 
         if (failureDetection())
         {
@@ -685,7 +685,7 @@ bool Estimator::initialStructure()
 
 bool Estimator::visualInitialAlign()
 {
-    TicToc t_g;
+    //TicToc t_g;
     VectorXd x;
     //solve scale
     bool result = VisualIMUAlignment(all_image_frame, Bgs, g, x);
@@ -963,7 +963,7 @@ bool Estimator::failureDetection()
 
 void Estimator::optimization()
 {
-    TicToc t_whole, t_prepare;
+    //TicToc t_whole, t_prepare;
     vector2double();
 
     ceres::Problem problem;
@@ -1096,7 +1096,7 @@ void Estimator::optimization()
     if(frame_count < WINDOW_SIZE)
         return;
     
-    TicToc t_whole_marginalization;
+    //TicToc t_whole_marginalization;
     if (marginalization_flag == MARGIN_OLD)
     {
         MarginalizationInfo *marginalization_info = new MarginalizationInfo();
@@ -1186,13 +1186,13 @@ void Estimator::optimization()
             }
         }
 
-        TicToc t_pre_margin;
+        //TicToc t_pre_margin;
         marginalization_info->preMarginalize();
-        ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
+        //ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
         
-        TicToc t_margin;
+        //TicToc t_margin;
         marginalization_info->marginalize();
-        ROS_DEBUG("marginalization %f ms", t_margin.toc());
+        //ROS_DEBUG("marginalization %f ms", t_margin.toc());
 
         std::unordered_map<long, double *> addr_shift;
         for (int i = 1; i <= WINDOW_SIZE; i++)
@@ -1240,15 +1240,15 @@ void Estimator::optimization()
                 marginalization_info->addResidualBlockInfo(residual_block_info);
             }
 
-            TicToc t_pre_margin;
-            ROS_DEBUG("begin marginalization");
+            //TicToc t_pre_margin;
+            //ROS_DEBUG("begin marginalization");
             marginalization_info->preMarginalize();
-            ROS_DEBUG("end pre marginalization, %f ms", t_pre_margin.toc());
+            //ROS_DEBUG("end pre marginalization, %f ms", t_pre_margin.toc());
 
-            TicToc t_margin;
-            ROS_DEBUG("begin marginalization");
+            //TicToc t_margin;
+            //ROS_DEBUG("begin marginalization");
             marginalization_info->marginalize();
-            ROS_DEBUG("end marginalization, %f ms", t_margin.toc());
+            //ROS_DEBUG("end marginalization, %f ms", t_margin.toc());
             
             std::unordered_map<long, double *> addr_shift;
             for (int i = 0; i <= WINDOW_SIZE; i++)
@@ -1288,7 +1288,7 @@ void Estimator::optimization()
 
 void Estimator::slideWindow()
 {
-    TicToc t_margin;
+    //TicToc t_margin;
     if (marginalization_flag == MARGIN_OLD)
     {
         double t_0 = Headers[0];
