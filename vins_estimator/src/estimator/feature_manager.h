@@ -65,10 +65,11 @@ class FeaturePerId
     int used_num;
     double estimated_depth;
     int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
+    double oakd_depth;
 
     FeaturePerId(int _feature_id, int _start_frame, double _depth)
         : feature_id(_feature_id), start_frame(_start_frame),
-          used_num(0), estimated_depth(_depth), solve_flag(0)
+          used_num(0), estimated_depth(_depth), solve_flag(0), oakd_depth(_depth)
     {
     }
 

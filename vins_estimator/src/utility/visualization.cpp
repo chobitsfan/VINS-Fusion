@@ -60,6 +60,7 @@ void pubOdometry(const Estimator &estimator)
                 perror("sendto failed");
             }
         }
+        printf("%f,%f,%f,", px, py, pz);
     }
 #ifdef SEND_FEATURES
     if (pub_addr.sin_family == AF_INET) {

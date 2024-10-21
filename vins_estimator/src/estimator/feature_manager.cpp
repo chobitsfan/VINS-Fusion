@@ -84,11 +84,13 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
         }
         else if (it->feature_id == feature_id)
         {
+            it->oakd_depth = depth;
             it->feature_per_frame.push_back(f_per_fra);
             last_track_num++;
             if( it-> feature_per_frame.size() >= 4)
                 long_track_num++;
         }
+        //if (feature_id == log_feature_id) printf("feature %d oak-d depth %f\n", feature_id, depth);
     }
 
     //if (frame_count < 2 || last_track_num < 20)
@@ -143,6 +145,7 @@ vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_coun
 void FeatureManager::setDepth(const VectorXd &x)
 {
     int feature_index = -1;
+    double max_depth_diff = 0, depth_diff;
     for (auto &it_per_id : feature)
     {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
@@ -156,8 +159,13 @@ void FeatureManager::setDepth(const VectorXd &x)
             it_per_id.solve_flag = 2;
         }
         else
+        {
             it_per_id.solve_flag = 1;
+            depth_diff = fabs(it_per_id.estimated_depth - it_per_id.oakd_depth);
+            if (depth_diff > max_depth_diff) max_depth_diff = depth_diff;
+        }
     }
+    printf("%f\n", max_depth_diff);
 }
 
 void FeatureManager::removeFailures()
