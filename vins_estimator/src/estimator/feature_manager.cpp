@@ -11,8 +11,8 @@
 #include "feature_manager.h"
 
 FILE* my_log_file = NULL;
-//FILE* my_log_file2 = NULL;
-//int my_log_num = 0;
+FILE* my_log_file2 = NULL;
+int my_log_num = 0;
 
 int FeaturePerId::endFrame()
 {
@@ -25,12 +25,12 @@ FeatureManager::FeatureManager(Matrix3d _Rs[])
     for (int i = 0; i < NUM_OF_CAM; i++)
         ric[i].setIdentity();
     my_log_file = fopen("log_features.csv", "w");
-    //my_log_file2 = fopen("log_pos.csv", "w");
+    my_log_file2 = fopen("log_pos.csv", "w");
 }
 
 FeatureManager::~FeatureManager() {
     fclose(my_log_file);
-    //fclose(my_log_file2);
+    fclose(my_log_file2);
 }
 
 void FeatureManager::setRic(Matrix3d _ric[])
@@ -157,8 +157,8 @@ vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_coun
 void FeatureManager::setDepth(const VectorXd &x)
 {
     int feature_index = -1;
-    double depth_diff = 0;
-    int feature_count = 0, bad_feature_count = 0;
+    //double depth_diff = 0;
+    //int feature_count = 0, bad_feature_count = 0;
     for (auto &it_per_id : feature)
     {
         it_per_id.used_num = it_per_id.feature_per_frame.size();
@@ -174,16 +174,16 @@ void FeatureManager::setDepth(const VectorXd &x)
         else
         {
             it_per_id.solve_flag = 1;
-            depth_diff = fabs(it_per_id.estimated_depth - it_per_id.oakd_depth);
+            /*depth_diff = fabs(it_per_id.estimated_depth - it_per_id.oakd_depth);
             if (depth_diff > 1) {
                 ++bad_feature_count;
             }
-            ++feature_count;
-            //fprintf(my_log_file, "%d,%d,%f,%f\n", my_log_num, it_per_id.feature_id, it_per_id.estimated_depth, it_per_id.oakd_depth);
+            ++feature_count;*/
+            fprintf(my_log_file, "%d,%d,%f,%f\n", my_log_num, it_per_id.feature_id, it_per_id.estimated_depth, it_per_id.oakd_depth);
         }
     }
-    //++my_log_num;
-    fprintf(my_log_file, "%d,%d", feature_count, bad_feature_count);
+    ++my_log_num;
+    //fprintf(my_log_file, "%d,%d", feature_count, bad_feature_count);
 }
 
 void FeatureManager::removeFailures()
