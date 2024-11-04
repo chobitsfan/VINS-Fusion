@@ -15,11 +15,14 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <stdio.h>
 #define SEND_FEATURES
 static struct sockaddr_un chobits_addr, chobits_local_addr;
 static int chobits_sock;
 extern int pub_sock;
 extern struct sockaddr_in pub_addr;
+extern FILE* my_log_file;
+//extern int my_log_num;
 
 void registerPub()
 {
@@ -60,7 +63,8 @@ void pubOdometry(const Estimator &estimator)
                 perror("sendto failed");
             }
         }
-        printf("%f,%f,%f,", px, py, pz);
+        //fprintf(my_log_file2, "%d,%f,%f,%f\n", my_log_num, px, py, pz);
+        fprintf(my_log_file, ",%f,%f,%f\n", px, py, pz);
     }
 #ifdef SEND_FEATURES
     if (pub_addr.sin_family == AF_INET) {

@@ -295,7 +295,7 @@ void Estimator::processMeasurements()
             //printStatistics(*this, 0);
             if (ccc > 60) {
                 ccc = 0;
-                //cout << "pose est cost " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count() << " ms\n";
+                cout << "pose est cost " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count() << " ms\n";
             }
 
             pubOdometry(*this);

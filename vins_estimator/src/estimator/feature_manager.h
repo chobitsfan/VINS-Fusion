@@ -80,6 +80,7 @@ class FeatureManager
 {
   public:
     FeatureManager(Matrix3d _Rs[]);
+    ~FeatureManager();
 
     void setRic(Matrix3d _ric[]);
     void clearState();
