@@ -27,10 +27,10 @@
 #define IMU_SOCK_PATH "/tmp/chobits_imu"
 #define FEATURES_SOCK_PATH "/tmp/chobits_features"
 
-#define BUF_SZ 12*1024
+#define MAX_FEATURES_COUNT 60
 
 bool gogogo = true;
-double buf[BUF_SZ/sizeof(double)];
+double buf[14*MAX_FEATURES_COUNT+2];
 int pub_sock = 0;
 struct sockaddr_in pub_addr;
 
@@ -114,14 +114,14 @@ int main(int argc, char **argv)
     while (true) {
         if (poll(pfds, 3, -1) > 0) {
             if (pfds[0].revents & POLLIN) {
-                if (recv(imu_sock, buf, BUF_SZ, 0) > 0) {
+                if (recv(imu_sock, buf, sizeof(buf), 0) > 0) {
                     Vector3d acc(buf[1], buf[2], buf[3]);
                     Vector3d gyr(buf[4], buf[5], buf[6]);
                     estimator.inputIMU(buf[0], acc, gyr);
                 }
             }
             if (pfds[1].revents & POLLIN) {
-                int len = recv(features_sock, buf, BUF_SZ, 0);
+                int len = recv(features_sock, buf, sizeof(buf), 0);
                 if (len > 0) {
                     double* features_data = buf;
                     int num = features_data[0];
