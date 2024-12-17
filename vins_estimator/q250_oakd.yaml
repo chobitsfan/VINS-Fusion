@@ -11,23 +11,23 @@ output_path: "/home/pi/Documents"
 estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
-#this is based on ros axis, x = front, y = left
+# IMU axis = ros axis, x = front, y = left, z = up
 body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 0, 0, 1, 0,
-           -1, 0, 0, 0,
-           0, -1, 0, 0,
+   data: [ 0, 0, 1, 0.002,
+           -1, 0, 0, 0.006,
+           0, -1, 0, 0.006,
            0, 0, 0, 1 ]
 
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 0, 0, 1, 0,
-           -1, 0, 0, -0.0750492,
-           0, -1, 0, 0,
+   data: [ 0, 0, 1, 0.002,
+           -1, 0, 0, -0.069,
+           0, -1, 0, 0.006,
            0, 0, 0, 1 ]
 
 #Multiple thread support
