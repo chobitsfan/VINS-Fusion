@@ -16,15 +16,22 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
-#define SEND_FEATURES
+#include "rclcpp/rclcpp.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "tf2_ros/transform_broadcaster.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "std_msgs/msg/header.hpp"
+
+//#define SEND_FEATURES
 static struct sockaddr_un chobits_addr, chobits_local_addr;
 static int chobits_sock;
-extern int pub_sock;
-extern struct sockaddr_in pub_addr;
 #ifdef LOG_FEATURES
 extern FILE* my_log_file2;
 extern int my_log_num;
 #endif
+std::shared_ptr<rclcpp::Node> node;
+rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odo_pub;
+std::unique_ptr<tf2_ros::TransformBroadcaster> tf_br;
 
 void registerPub()
 {
@@ -37,6 +44,10 @@ void registerPub()
     chobits_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
     unlink("/tmp/chobits_1234");
     bind(chobits_sock, (struct sockaddr*)&chobits_local_addr, sizeof(chobits_local_addr));
+
+    node = rclcpp::Node::make_shared("vins");
+    odo_pub = node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
+    tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(node);
 }
 
 void pubOdometry(const Estimator &estimator)
@@ -59,12 +70,35 @@ void pubOdometry(const Estimator &estimator)
         float chobits_msg[10] = { (float)qw, (float)qx, (float)qy, (float)qz, (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
         sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
 
-        if (pub_addr.sin_family == AF_INET) {
-            double odo_msg[] = {0, px, py, pz, qx, qy, qz, qw, vx, vy, vz};
-            if (sendto(pub_sock, odo_msg, sizeof(odo_msg), 0, (struct sockaddr*)&pub_addr, sizeof(pub_addr)) < 0) {
-                perror("sendto failed");
-            }
-        }
+        std_msgs::msg::Header header;
+        header.stamp = node->get_clock()->now();
+        header.frame_id = "map";
+        geometry_msgs::msg::TransformStamped tf;
+        tf.header = header;
+        tf.child_frame_id = "body";
+        tf.transform.translation.x = px;
+        tf.transform.translation.y = py;
+        tf.transform.translation.z = pz;
+        tf.transform.rotation.x = qx;
+        tf.transform.rotation.y = qy;
+        tf.transform.rotation.z = qz;
+        tf.transform.rotation.w = qw;
+        tf_br->sendTransform(tf);
+
+        nav_msgs::msg::Odometry odo_msg;
+        odo_msg.header = header;
+        odo_msg.child_frame_id = "map";
+        odo_msg.pose.pose.position.x = px;
+        odo_msg.pose.pose.position.y = py;
+        odo_msg.pose.pose.position.z = pz;
+        odo_msg.pose.pose.orientation.x= qx;
+        odo_msg.pose.pose.orientation.y = qy;
+        odo_msg.pose.pose.orientation.z = qz;
+        odo_msg.pose.pose.orientation.w = qw;
+        odo_msg.twist.twist.linear.x = vx;
+        odo_msg.twist.twist.linear.x = vy;
+        odo_msg.twist.twist.linear.x = vz;
+        odo_pub->publish(odo_msg);
 #ifdef LOG_FEATURES
         fprintf(my_log_file2, "%d,%f,%f,%f\n", my_log_num, px, py, pz);
 #endif
