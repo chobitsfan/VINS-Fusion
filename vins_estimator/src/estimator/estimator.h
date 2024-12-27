@@ -17,6 +17,9 @@
 #include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include "rclcpp/rclcpp.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "tf2_ros/transform_broadcaster.h"
 
 #include "parameters.h"
 #include "feature_manager.h"
@@ -167,4 +170,8 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+
+    std::shared_ptr<rclcpp::Node> ros_node;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odo_pub;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_br;
 };

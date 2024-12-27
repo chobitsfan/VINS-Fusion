@@ -29,11 +29,8 @@ static int chobits_sock;
 extern FILE* my_log_file2;
 extern int my_log_num;
 #endif
-std::shared_ptr<rclcpp::Node> node;
-rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odo_pub;
-std::unique_ptr<tf2_ros::TransformBroadcaster> tf_br;
 
-void registerPub()
+void registerPub(Estimator &estimator)
 {
     memset(&chobits_addr, 0, sizeof(struct sockaddr_un));
     chobits_addr.sun_family = AF_UNIX;
@@ -45,9 +42,9 @@ void registerPub()
     unlink("/tmp/chobits_1234");
     bind(chobits_sock, (struct sockaddr*)&chobits_local_addr, sizeof(chobits_local_addr));
 
-    node = rclcpp::Node::make_shared("vins");
-    odo_pub = node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
-    tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(node);
+    estimator.ros_node = rclcpp::Node::make_shared("vins");
+    estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
+    estimator.tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(estimator.ros_node);
 }
 
 void pubOdometry(const Estimator &estimator)
@@ -71,7 +68,7 @@ void pubOdometry(const Estimator &estimator)
         sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
 
         std_msgs::msg::Header header;
-        header.stamp = node->get_clock()->now();
+        header.stamp = estimator.ros_node->get_clock()->now();
         header.frame_id = "map";
         geometry_msgs::msg::TransformStamped tf;
         tf.header = header;
@@ -83,7 +80,7 @@ void pubOdometry(const Estimator &estimator)
         tf.transform.rotation.y = qy;
         tf.transform.rotation.z = qz;
         tf.transform.rotation.w = qw;
-        tf_br->sendTransform(tf);
+        estimator.tf_br->sendTransform(tf);
 
         nav_msgs::msg::Odometry odo_msg;
         odo_msg.header = header;
@@ -98,7 +95,7 @@ void pubOdometry(const Estimator &estimator)
         odo_msg.twist.twist.linear.x = vx;
         odo_msg.twist.twist.linear.x = vy;
         odo_msg.twist.twist.linear.x = vz;
-        odo_pub->publish(odo_msg);
+        estimator.odo_pub->publish(odo_msg);
 #ifdef LOG_FEATURES
         fprintf(my_log_file2, "%d,%f,%f,%f\n", my_log_num, px, py, pz);
 #endif

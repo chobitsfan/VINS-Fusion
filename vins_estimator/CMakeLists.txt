@@ -28,7 +28,8 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-add_library(vins_lib
+add_executable(vins_fusion
+    src/main.cpp
     src/estimator/parameters.cpp
     src/estimator/estimator.cpp
     src/estimator/feature_manager.cpp
@@ -43,12 +44,8 @@ add_library(vins_lib
     src/initial/initial_aligment.cpp
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
-    )
-target_link_libraries(vins_lib ${OpenCV_LIBS} ${CERES_LIBRARIES})
-ament_target_dependencies(vins_lib rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2 tf2_ros)
-
-add_executable(vins_fusion src/main.cpp)
-ament_target_dependencies(vins_fusion rclcpp)
-target_link_libraries(vins_fusion vins_lib)
+)
+ament_target_dependencies(vins_fusion rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2 tf2_ros)
+target_link_libraries(vins_fusion ${OpenCV_LIBS} ${CERES_LIBRARIES})
 
 ament_package()

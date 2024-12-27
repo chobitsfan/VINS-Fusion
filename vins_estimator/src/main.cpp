@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 
     ROS_WARN("waiting for image and imu...");
 
-    registerPub();
+    registerPub(estimator);
 
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
