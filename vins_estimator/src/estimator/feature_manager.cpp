@@ -10,9 +10,11 @@
 #include <stdio.h>
 #include "feature_manager.h"
 
+#ifdef LOG_FEATURES
 FILE* my_log_file = NULL;
 FILE* my_log_file2 = NULL;
 int my_log_num = 0;
+#endif
 
 int FeaturePerId::endFrame()
 {
@@ -24,13 +26,17 @@ FeatureManager::FeatureManager(Matrix3d _Rs[])
 {
     for (int i = 0; i < NUM_OF_CAM; i++)
         ric[i].setIdentity();
+#ifdef LOG_FEATURES
     my_log_file = fopen("log_features.csv", "w");
     my_log_file2 = fopen("log_pos.csv", "w");
+#endif
 }
 
 FeatureManager::~FeatureManager() {
+#ifdef LOG_FEATURES
     fclose(my_log_file);
     fclose(my_log_file2);
+#endif
 }
 
 void FeatureManager::setRic(Matrix3d _ric[])
@@ -179,10 +185,14 @@ void FeatureManager::setDepth(const VectorXd &x)
                 ++bad_feature_count;
             }
             ++feature_count;*/
+#ifdef LOG_FEATURES
             fprintf(my_log_file, "%d,%d,%f,%f\n", my_log_num, it_per_id.feature_id, it_per_id.estimated_depth, it_per_id.oakd_depth);
+#endif
         }
     }
+#ifdef LOG_FEATURES
     ++my_log_num;
+#endif
     //fprintf(my_log_file, "%d,%d", feature_count, bad_feature_count);
 }
 
