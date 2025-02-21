@@ -21,6 +21,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 #include "sensor_msgs/msg/point_cloud.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 #include "parameters.h"
 #include "feature_manager.h"
@@ -175,5 +176,6 @@ class Estimator
     std::shared_ptr<rclcpp::Node> ros_node;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odo_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr ft_pub;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr track_pub;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_br;
 };

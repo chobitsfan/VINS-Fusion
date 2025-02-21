@@ -22,6 +22,7 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "sensor_msgs/msg/point_cloud.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 static struct sockaddr_un chobits_addr, chobits_local_addr;
 static int chobits_sock;
@@ -45,11 +46,17 @@ void registerPub(Estimator &estimator)
     estimator.ros_node = rclcpp::Node::make_shared("vins");
     estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
     estimator.ft_pub = estimator.ros_node->create_publisher<sensor_msgs::msg::PointCloud>("features", 1);
+    estimator.track_pub = estimator.ros_node->create_publisher<visualization_msgs::msg::Marker>("track", 1);
     estimator.tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(estimator.ros_node);
 }
 
 void pubOdometry(const Estimator &estimator)
 {
+    static unsigned int path_c = 0;
+    static unsigned int path_i = 0;
+    static double prv_px = 0;
+    static double prv_py = 0;
+    static double prv_pz = 0;
     std_msgs::msg::Header header;
     header.stamp = estimator.ros_node->get_clock()->now();
     header.frame_id = "map";
@@ -97,6 +104,37 @@ void pubOdometry(const Estimator &estimator)
         odo_msg.twist.twist.linear.x = vy;
         odo_msg.twist.twist.linear.x = vz;
         estimator.odo_pub->publish(odo_msg);
+
+        path_c++;
+        if (path_c > 5) {
+            path_c = 0;
+            visualization_msgs::msg::Marker line_list;
+            line_list.header = header;
+            line_list.type = visualization_msgs::msg::Marker::LINE_STRIP;
+            line_list.action = visualization_msgs::msg::Marker::ADD;
+            line_list.pose.orientation.w = 1.0;
+            line_list.id = path_i;
+            line_list.ns = "track";
+            line_list.scale.x = 0.02;
+            line_list.color.r = 1.0;
+            line_list.color.g = 1.0;
+            line_list.color.b = 1.0;
+            line_list.color.a = 1.0;
+            geometry_msgs::msg::Point p;
+            p.x = prv_px;
+            p.y = prv_py;
+            p.z = prv_pz;
+            line_list.points.push_back(p);
+            p.x = px;
+            p.y = py;
+            p.z = pz;
+            line_list.points.push_back(p);
+            estimator.track_pub->publish(line_list);
+            path_i++;
+            prv_px = px;
+            prv_py = py;
+            prv_pz = pz;
+        }
 #ifdef LOG_FEATURES
         fprintf(my_log_file2, "%d,%f,%f,%f\n", my_log_num, px, py, pz);
 #endif

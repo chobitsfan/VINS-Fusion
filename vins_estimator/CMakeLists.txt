@@ -17,6 +17,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 
@@ -45,7 +46,7 @@ add_executable(vins_fusion
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
 )
-ament_target_dependencies(vins_fusion rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2 tf2_ros)
+ament_target_dependencies(vins_fusion rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2 tf2_ros visualization_msgs)
 target_link_libraries(vins_fusion ${OpenCV_LIBS} ${CERES_LIBRARIES})
 
 ament_package()
