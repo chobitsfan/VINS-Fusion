@@ -21,8 +21,8 @@
 #include "tf2_ros/transform_broadcaster.h"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "std_msgs/msg/header.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
 
-//#define SEND_FEATURES
 static struct sockaddr_un chobits_addr, chobits_local_addr;
 static int chobits_sock;
 #ifdef LOG_FEATURES
@@ -44,11 +44,15 @@ void registerPub(Estimator &estimator)
 
     estimator.ros_node = rclcpp::Node::make_shared("vins");
     estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
+    estimator.ft_pub = estimator.ros_node->create_publisher<sensor_msgs::msg::PointCloud>("features", 1);
     estimator.tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(estimator.ros_node);
 }
 
 void pubOdometry(const Estimator &estimator)
 {
+    std_msgs::msg::Header header;
+    header.stamp = estimator.ros_node->get_clock()->now();
+    header.frame_id = "map";
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
         double px = estimator.Ps[WINDOW_SIZE].x();
@@ -67,9 +71,6 @@ void pubOdometry(const Estimator &estimator)
         float chobits_msg[10] = { (float)qw, (float)qx, (float)qy, (float)qz, (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
         sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
 
-        std_msgs::msg::Header header;
-        header.stamp = estimator.ros_node->get_clock()->now();
-        header.frame_id = "map";
         geometry_msgs::msg::TransformStamped tf;
         tf.header = header;
         tf.child_frame_id = "body";
@@ -101,30 +102,23 @@ void pubOdometry(const Estimator &estimator)
 #endif
         //fprintf(my_log_file, ",%f,%f,%f\n", px, py, pz);
     }
-#ifdef SEND_FEATURES
-    if (pub_addr.sin_family == AF_INET) {
-        float pp_msg[40*3+1];
-        float* pp_msg_ptr = pp_msg;
-        int c = 0;
-        for (auto &it_per_id : estimator.f_manager.feature)
-        {
-            int used_num;
-            used_num = it_per_id.feature_per_frame.size();
-            if (!(used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
-                continue;
-            if (it_per_id.start_frame > WINDOW_SIZE * 3.0 / 4.0 || it_per_id.solve_flag != 1)
-                continue;
-            int imu_i = it_per_id.start_frame;
-            Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
-            Vector3d w_pts_i = estimator.Rs[imu_i] * (estimator.ric[0] * pts_i + estimator.tic[0]) + estimator.Ps[imu_i];
-            *++pp_msg_ptr = w_pts_i(0);
-            *++pp_msg_ptr = w_pts_i(1);
-            *++pp_msg_ptr = w_pts_i(2);
-            ++c;
-            if (c >= 40) break;
-        }
-        pp_msg[0] = c;
-        sendto(pub_sock, pp_msg, sizeof(pp_msg), 0, (struct sockaddr*)&pub_addr, sizeof(pub_addr));
+    sensor_msgs::msg::PointCloud features;
+    features.header = header;
+    for (auto &it_per_id : estimator.f_manager.feature) {
+        int used_num;
+        used_num = it_per_id.feature_per_frame.size();
+        if (!(used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
+            continue;
+        if (it_per_id.start_frame > WINDOW_SIZE * 3.0 / 4.0 || it_per_id.solve_flag != 1)
+            continue;
+        int imu_i = it_per_id.start_frame;
+        Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+        Vector3d w_pts_i = estimator.Rs[imu_i] * (estimator.ric[0] * pts_i + estimator.tic[0]) + estimator.Ps[imu_i];
+        geometry_msgs::msg::Point32 p;
+        p.x = w_pts_i(0);
+        p.y = w_pts_i(1);
+        p.z = w_pts_i(2);
+        features.points.push_back(p);
     }
-#endif
+    estimator.ft_pub->publish(features);
 }
