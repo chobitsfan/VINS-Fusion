@@ -240,6 +240,9 @@ void Estimator::processMeasurements()
 {
     static unsigned int ccc = 0;
     unsigned int wait_imu_c = 0;
+    static int total_ms = 0;
+    static int long_ms = 0;
+    static int short_ms = 1000000;
     while (gogogo)
     {
         //printf("process measurments\n");
@@ -261,9 +264,8 @@ void Estimator::processMeasurements()
                 }
             }
 
-            std::chrono::time_point<std::chrono::steady_clock> start_ts;
             ccc++;
-            if (ccc > 60) start_ts = std::chrono::steady_clock::now();
+            auto start_ts = std::chrono::steady_clock::now();
 
             mBuf.lock();
             if(USE_IMU)
@@ -293,9 +295,15 @@ void Estimator::processMeasurements()
             prevTime = curTime;
 
             //printStatistics(*this, 0);
+            int cost_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count();
+            if (cost_ms > long_ms) long_ms = cost_ms;
+            else if (cost_ms < short_ms) short_ms = cost_ms;
+            total_ms += cost_ms;
             if (ccc > 60) {
                 ccc = 0;
-                cout << "pose est cost " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_ts).count() << " ms\n";
+                cout << "pose est avg, long, short time " <<  total_ms / 60 << ", " << long_ms << ", " << short_ms << " ms\n";
+                total_ms = long_ms = 0;
+                short_ms = 10000000;
             }
 
             pubOdometry(*this);
