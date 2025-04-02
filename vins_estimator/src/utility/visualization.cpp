@@ -24,8 +24,6 @@
 #include "sensor_msgs/msg/point_cloud.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
-static struct sockaddr_un chobits_addr, chobits_local_addr;
-static int chobits_sock;
 #ifdef LOG_FEATURES
 extern FILE* my_log_file2;
 extern int my_log_num;
@@ -33,16 +31,6 @@ extern int my_log_num;
 
 void registerPub(Estimator &estimator)
 {
-    memset(&chobits_addr, 0, sizeof(struct sockaddr_un));
-    chobits_addr.sun_family = AF_UNIX;
-    strcpy(chobits_addr.sun_path, "/tmp/chobits_server");
-    memset(&chobits_local_addr, 0, sizeof(struct sockaddr_un));
-    chobits_local_addr.sun_family = AF_UNIX;
-    strcpy(chobits_local_addr.sun_path, "/tmp/chobits_1234");
-    chobits_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-    unlink("/tmp/chobits_1234");
-    bind(chobits_sock, (struct sockaddr*)&chobits_local_addr, sizeof(chobits_local_addr));
-
     estimator.ros_node = rclcpp::Node::make_shared("vins");
     estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
     estimator.ft_pub = estimator.ros_node->create_publisher<sensor_msgs::msg::PointCloud>("features", 1);
@@ -75,9 +63,6 @@ void pubOdometry(const Estimator &estimator)
         double qz = q.z();
         double qw = q.w();
 
-        float chobits_msg[10] = { (float)qw, (float)qx, (float)qy, (float)qz, (float)px, (float)py, (float)pz, (float)vx, (float)vy, (float)vz };
-        sendto(chobits_sock, chobits_msg, sizeof(chobits_msg), 0, (struct sockaddr*)&chobits_addr, sizeof(chobits_addr));
-
         geometry_msgs::msg::TransformStamped tf;
         tf.header = header;
         tf.child_frame_id = "body";
@@ -101,8 +86,8 @@ void pubOdometry(const Estimator &estimator)
         odo_msg.pose.pose.orientation.z = qz;
         odo_msg.pose.pose.orientation.w = qw;
         odo_msg.twist.twist.linear.x = vx;
-        odo_msg.twist.twist.linear.x = vy;
-        odo_msg.twist.twist.linear.x = vz;
+        odo_msg.twist.twist.linear.y = vy;
+        odo_msg.twist.twist.linear.z = vz;
         estimator.odo_pub->publish(odo_msg);
 
         path_c++;
