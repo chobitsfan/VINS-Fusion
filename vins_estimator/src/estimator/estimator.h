@@ -103,6 +103,7 @@ class Estimator
     bool openExEstimation;
 
     std::thread processThread;
+    std::thread pubThread;
 
     SolverFlag solver_flag;
     MarginalizationFlag  marginalization_flag;

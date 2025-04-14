@@ -82,6 +82,8 @@ int main(int argc, char **argv)
     string config_file = argv[1];
     printf("config_file: %s\n", argv[1]);
 
+    registerPub(estimator);
+
     readParameters(config_file);
     estimator.setParameter();
 
@@ -90,8 +92,6 @@ int main(int argc, char **argv)
 #endif
 
     ROS_WARN("waiting for image and imu...");
-
-    registerPub(estimator);
 
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;

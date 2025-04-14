@@ -11,6 +11,7 @@
 #include "../utility/visualization.h"
 
 extern bool gogogo;
+extern void pub_result_func(const Estimator* estimator);
 
 Estimator::Estimator(): f_manager{Rs}
 {
@@ -24,6 +25,7 @@ Estimator::~Estimator()
     if (MULTIPLE_THREAD)
     {
         processThread.join();
+        pubThread.join();
         printf("process thread finished\n");
     }
 }
@@ -116,6 +118,7 @@ void Estimator::setParameter()
     {
         initThreadFlag = true;
         processThread = std::thread(&Estimator::processMeasurements, this);
+        pubThread = std::thread(pub_result_func, this);
     }
     //mProcess.unlock();
 }
