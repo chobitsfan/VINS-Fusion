@@ -43,7 +43,7 @@ void pub_result_func(const Estimator* estimator) {
 void registerPub(Estimator &estimator)
 {
     estimator.ros_node = rclcpp::Node::make_shared("vins");
-    estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", 1);
+    estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", rclcpp::QoS(1).best_effort().durability_volatile());
     estimator.ft_pub = estimator.ros_node->create_publisher<sensor_msgs::msg::PointCloud>("features", rclcpp::QoS(1).best_effort().durability_volatile());
     estimator.track_pub = estimator.ros_node->create_publisher<visualization_msgs::msg::Marker>("track", rclcpp::QoS(1).best_effort().durability_volatile());
     estimator.tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(estimator.ros_node);
