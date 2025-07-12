@@ -13,4 +13,4 @@
 #include "../estimator/parameters.h"
 
 void registerPub(Estimator &estimator);
-void pubOdometry(const Estimator &estimator);
+void pubOdometry(const Estimator &estimator, const double feature_ts);

@@ -309,7 +309,7 @@ void Estimator::processMeasurements()
                 short_ms = 10000000;
             }
 
-            pubOdometry(*this);
+            pubOdometry(*this, feature.first);
 
             //mProcess.unlock();
         }

@@ -59,7 +59,7 @@ void registerPub(Estimator &estimator)
     tf_to_pub.transform.rotation.w = 1;
 }
 
-void pubOdometry(const Estimator &estimator)
+void pubOdometry(const Estimator &estimator, const double feature_ts)
 {
     static unsigned int path_c = 0;
     static unsigned int path_i = 0;
@@ -67,7 +67,7 @@ void pubOdometry(const Estimator &estimator)
     static double prv_py = 0;
     static double prv_pz = 0;
     std_msgs::msg::Header header;
-    header.stamp = estimator.ros_node->get_clock()->now();
+    header.stamp = rclcpp::Time(feature_ts * 1000000000, RCL_STEADY_TIME);
     header.frame_id = "map";
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
