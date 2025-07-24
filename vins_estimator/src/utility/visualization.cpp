@@ -67,7 +67,12 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
     static double prv_py = 0;
     static double prv_pz = 0;
     std_msgs::msg::Header header;
-    header.stamp = rclcpp::Time(feature_ts * 1000000000, RCL_STEADY_TIME);
+    //struct timespec tp;
+    //clock_gettime(CLOCK_MONOTONIC, &tp);
+    //printf("cost %ld\n", (int64_t)tp.tv_sec * 1000000000 + tp.tv_nsec - (int64_t)(feature_ts * 1000000000));
+    //header.stamp = rclcpp::Time(feature_ts * 1000000000, RCL_STEADY_TIME);
+    header.stamp.sec = (int32_t)feature_ts;
+    header.stamp.nanosec = (uint32_t)((feature_ts - (int32_t)feature_ts) * 1000000000);
     header.frame_id = "map";
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
