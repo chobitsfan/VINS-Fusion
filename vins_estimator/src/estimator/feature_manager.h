@@ -30,7 +30,7 @@ class FeaturePerFrame
     {
         point.x() = _point(0);
         point.y() = _point(1);
-        point.z() = 1;
+        point.z() = 1; // original FeatureTracker::trackImage always set z = 1
         uv.x() = _point(3);
         uv.y() = _point(4);
         velocity.x() = _point(5); 

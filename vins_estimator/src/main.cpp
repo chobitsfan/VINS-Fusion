@@ -117,6 +117,7 @@ int main(int argc, char **argv)
                         int id = features_data[0];
                         xyz_uv_velocity << features_data[1], features_data[2], features_data[13], features_data[3], features_data[4], features_data[5], features_data[6];
                         featureFrame[id].emplace_back(0,  xyz_uv_velocity);
+                        // original FeatureTracker::trackImage always set z = 1
                         xyz_uv_velocity << features_data[7], features_data[8], 1, features_data[9], features_data[10], features_data[11], features_data[12];
                         featureFrame[id].emplace_back(1,  xyz_uv_velocity);
                         features_data += 14;
