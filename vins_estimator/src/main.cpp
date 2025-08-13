@@ -28,7 +28,7 @@
 #define IMU_SOCK_PATH "/tmp/chobits_imu"
 #define FEATURES_SOCK_PATH "/tmp/chobits_features"
 
-#define MAX_FEATURES_COUNT 60
+#define MAX_FEATURES_COUNT 80
 
 bool gogogo = true;
 double buf[14*MAX_FEATURES_COUNT+2];
