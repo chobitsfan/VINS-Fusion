@@ -262,7 +262,7 @@ void Estimator::processMeasurements()
                     break;
                 } else {
                     if (!MULTIPLE_THREAD) return;
-                    printf("wait for imu, count=%d, td=%f\n", ++wait_imu_c, td);
+                    RCLCPP_WARN_THROTTLE(ros_node->get_logger(), *ros_node->get_clock(), 200, "wait for imu, count=%d", ++wait_imu_c);
                     std::this_thread::sleep_for(1ms);
                 }
             }

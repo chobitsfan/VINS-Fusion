@@ -30,13 +30,17 @@ extern int my_log_num;
 #endif
 
 extern bool gogogo;
-geometry_msgs::msg::TransformStamped tf_to_pub;
+static geometry_msgs::msg::TransformStamped tf_to_pub;
+static std::mutex tf_mtx;
+static std::condition_variable tf_cv;
+static bool tf_ready = false;
 
 void pub_result_func(const Estimator* estimator) {
+    std::unique_lock<std::mutex> lock(tf_mtx);
     while (gogogo) {
-        tf_to_pub.header.stamp = estimator->ros_node->get_clock()->now();
+        tf_cv.wait(lock, [] { return tf_ready; }); // Wait until "tf_ready" becomes true
+        tf_ready = false;
         estimator->tf_br->sendTransform(tf_to_pub);
-        std::this_thread::sleep_for(20ms);
     }
 }
 
@@ -89,6 +93,7 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         double qz = q.z();
         double qw = q.w();
 
+        tf_to_pub.header = header;
         tf_to_pub.transform.translation.x = px;
         tf_to_pub.transform.translation.y = py;
         tf_to_pub.transform.translation.z = pz;
@@ -96,6 +101,9 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         tf_to_pub.transform.rotation.y = qy;
         tf_to_pub.transform.rotation.z = qz;
         tf_to_pub.transform.rotation.w = qw;
+        std::lock_guard<std::mutex> lock(tf_mtx);
+        tf_ready = true;
+        tf_cv.notify_one(); // wake up worker
 
         nav_msgs::msg::Odometry odo_msg;
         odo_msg.header = header;

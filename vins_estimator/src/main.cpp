@@ -91,7 +91,7 @@ int main(int argc, char **argv)
     ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
 #endif
 
-    ROS_WARN("waiting for image and imu...");
+    RCLCPP_WARN(estimator.ros_node->get_logger(), "waiting for image and imu...");
 
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
