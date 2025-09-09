@@ -32,6 +32,9 @@
 
 bool gogogo = true;
 double buf[14*MAX_FEATURES_COUNT+2];
+extern std::mutex tf_mtx;
+extern std::condition_variable tf_cv;
+extern bool tf_ready;
 
 int main(int argc, char **argv)
 {
@@ -129,6 +132,11 @@ int main(int argc, char **argv)
     }
 
     gogogo = false;
+    {
+        std::lock_guard<std::mutex> lock(tf_mtx);
+        tf_ready = true;
+        tf_cv.notify_one();
+    }
 
     unlink(IMU_SOCK_PATH);
     unlink(FEATURES_SOCK_PATH);

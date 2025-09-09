@@ -31,9 +31,9 @@ extern int my_log_num;
 
 extern bool gogogo;
 static geometry_msgs::msg::TransformStamped tf_to_pub;
-static std::mutex tf_mtx;
-static std::condition_variable tf_cv;
-static bool tf_ready = false;
+std::mutex tf_mtx;
+std::condition_variable tf_cv;
+bool tf_ready = false;
 
 void pub_result_func(const Estimator* estimator) {
     std::unique_lock<std::mutex> lock(tf_mtx);
