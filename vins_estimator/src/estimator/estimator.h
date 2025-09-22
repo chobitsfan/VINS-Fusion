@@ -46,6 +46,8 @@ class Estimator
     ~Estimator();
     void setParameter();
 
+    void setHeadingMeasurement(double timestamp, double yaw_rad);
+
     // interface
     void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
     void inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity);
@@ -179,4 +181,8 @@ class Estimator
     rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr ft_pub;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr track_pub;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_br;
+
+    double heading_time_;
+    double heading_yaw_;
+    bool have_heading_ = false;
 };

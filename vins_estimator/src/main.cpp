@@ -24,6 +24,7 @@
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
 #include "rclcpp/rclcpp.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
 
 #define IMU_SOCK_PATH "/tmp/chobits_imu"
 #define FEATURES_SOCK_PATH "/tmp/chobits_features"
@@ -96,9 +97,28 @@ int main(int argc, char **argv)
 
     RCLCPP_WARN(estimator.ros_node->get_logger(), "waiting for image and imu...");
 
+    auto vert_hori_line_sub = estimator.ros_node->create_subscription<geometry_msgs::msg::PolygonStamped>("vert_hori_line", 1,
+        [&estimator](const geometry_msgs::msg::PolygonStamped::SharedPtr msg) {
+            auto hori_p = msg->polygon.points[2];
+            auto hori_v = msg->polygon.points[3];
+            if (hori_p.x != 0) {
+                float vy;
+                if (hori_v.x < 0) {
+                    vy = -hori_v.y;
+                } else {
+                    vy = hori_v.y;
+                }
+                double hori_line_angle = acos(vy);
+                if (hori_line_angle > M_PI / 2) hori_line_angle = hori_line_angle - M_PI;
+                estimator.setHeadingMeasurement((double)msg->header.stamp.sec + (double)msg->header.stamp.nanosec / 1000000000.0, hori_line_angle);
+            }
+        }
+    );
+
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
     while (rclcpp::ok()) {
+        rclcpp::spin_some(estimator.ros_node);
         if (poll(pfds, 3, -1) > 0) {
             if (pfds[0].revents & POLLIN) {
                 if (recv(imu_sock, buf, sizeof(buf), 0) > 0) {

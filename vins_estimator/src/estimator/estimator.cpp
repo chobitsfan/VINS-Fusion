@@ -13,6 +13,32 @@
 extern bool gogogo;
 extern void pub_result_func(const Estimator* estimator);
 
+struct HeadingConstraint {
+    HeadingConstraint(double measured_yaw, double weight) : measured_yaw_(measured_yaw), weight_(weight) {}
+    template <typename T>
+    bool operator()(const T* const pose, T* residual) const {
+        // pose layout: [px,py,pz,qx,qy,qz,qw]
+        const T& qx = pose[3];
+        const T& qy = pose[4];
+        const T& qz = pose[5];
+        const T& qw = pose[6];
+        // yaw = atan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))
+        T siny_cosp = T(2) * (qw * qz + qx * qy);
+        T cosy_cosp = T(1) - T(2) * (qy * qy + qz * qz);
+        T yaw = ceres::atan2(siny_cosp, cosy_cosp);
+        T diff = yaw - T(measured_yaw_);
+        // wrap to [-pi, pi]
+        T s = ceres::sin(diff);
+        T c = ceres::cos(diff);
+        T wrapped = ceres::atan2(s, c);
+        residual[0] = T(weight_) * wrapped;
+        return true;
+    }
+private:
+    const double measured_yaw_;
+    const double weight_;
+};
+
 Estimator::Estimator(): f_manager{Rs}
 {
     ROS_INFO("init begins");
@@ -121,6 +147,12 @@ void Estimator::setParameter()
         pubThread = std::thread(pub_result_func, this);
     }
     //mProcess.unlock();
+}
+
+void Estimator::setHeadingMeasurement(double timestamp, double yaw_rad) {
+    have_heading_ = true;
+    heading_time_ = timestamp;
+    heading_yaw_ = yaw_rad;
 }
 
 void Estimator::changeSensorType(int use_imu, int use_stereo)
@@ -1075,6 +1107,30 @@ void Estimator::optimization()
                
             }
             f_m_cnt++;
+        }
+    }
+
+    if (have_heading_) {
+        // find index in Headers[] closest to heading_time_
+        int best_idx = -1;
+        double best_dt = 1e9;
+        for (int i = 0; i <= frame_count; ++i)
+        {
+            double dt = fabs(Headers[i] - heading_time_);
+            if (dt < best_dt)
+            {
+                best_dt = dt;
+                best_idx = i;
+            }
+        }
+        // tolerance: accept measurement only if close enough to a pose timestamp
+        if (best_idx >= 0 && best_dt <= 0.01)
+        {
+            //std::cout << "add heading constraint\n";
+            ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 2.0));
+            problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[best_idx]);
+            // consume the measurement so it is used only once
+            //have_heading_ = false;
         }
     }
 
