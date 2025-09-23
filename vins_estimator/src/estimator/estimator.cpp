@@ -28,10 +28,11 @@ struct HeadingConstraint {
         T yaw = ceres::atan2(siny_cosp, cosy_cosp);
         T diff = yaw - T(measured_yaw_);
         // wrap to [-pi, pi]
-        T s = ceres::sin(diff);
-        T c = ceres::cos(diff);
-        T wrapped = ceres::atan2(s, c);
-        residual[0] = T(weight_) * wrapped;
+        //T s = ceres::sin(diff);
+        //T c = ceres::cos(diff);
+        //T wrapped = ceres::atan2(s, c);
+        //residual[0] = T(weight_) * wrapped;
+        residual[0] = T(weight_) * diff;
         return true;
     }
 private:
@@ -1111,26 +1112,13 @@ void Estimator::optimization()
     }
 
     if (have_heading_) {
-        // find index in Headers[] closest to heading_time_
-        int best_idx = -1;
-        double best_dt = 1e9;
         for (int i = 0; i <= frame_count; ++i)
         {
             double dt = fabs(Headers[i] - heading_time_);
-            if (dt < best_dt)
-            {
-                best_dt = dt;
-                best_idx = i;
+            if (dt <= 0.01) {
+                ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 500.0));
+                problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[i]);
             }
-        }
-        // tolerance: accept measurement only if close enough to a pose timestamp
-        if (best_idx >= 0 && best_dt <= 0.01)
-        {
-            //std::cout << "add heading constraint\n";
-            ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 2.0));
-            problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[best_idx]);
-            // consume the measurement so it is used only once
-            //have_heading_ = false;
         }
     }
 
