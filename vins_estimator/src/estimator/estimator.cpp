@@ -1112,11 +1112,18 @@ void Estimator::optimization()
     }
 
     if (have_heading_) {
-        for (int i = 0; i <= frame_count; ++i)
+        /*for (int i = 0; i <= frame_count; ++i)
         {
             double dt = fabs(Headers[i] - heading_time_);
-            if (dt <= 0.01) {
-                ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 500.0));
+            if (dt <= 0.03) { // camera fps = 20
+                ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 100.0));
+                problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[i]);
+            }
+        }*/
+        if (heading_time_ - Headers[0] > 0) {
+            //std::cout << "add heading constraint\n";
+            for (int i = 0; i <= frame_count; ++i) {
+                ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 100.0));
                 problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[i]);
             }
         }
