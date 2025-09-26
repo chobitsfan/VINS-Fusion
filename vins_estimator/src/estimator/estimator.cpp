@@ -437,6 +437,8 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     ROS_DEBUG("number of feature: %d", f_manager.getFeatureCount());
     Headers[frame_count] = header;
 
+    if (fabs(header - heading_time_) < 0.07) heading_meas_[frame_count] = heading_yaw_; else heading_meas_[frame_count] = 0;
+
     ImageFrame imageframe(image, header);
     imageframe.pre_integration = tmp_pre_integration;
     all_image_frame.insert(make_pair(header, imageframe));
@@ -1120,13 +1122,22 @@ void Estimator::optimization()
                 problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[i]);
             }
         }*/
-        if (heading_time_ - Headers[0] > 0) {
+        /*if (heading_time_ - Headers[0] > 0) {
             //std::cout << "add heading constraint\n";
             for (int i = 0; i <= frame_count; ++i) {
                 ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_yaw_, 100.0));
                 problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[i]);
             }
+        }*/
+        //int c=0;
+        for (int i = 0; i <= frame_count; ++i) {
+            if (heading_meas_[i] != 0) {
+                ceres::CostFunction* yaw_cost = new ceres::AutoDiffCostFunction<HeadingConstraint, 1, SIZE_POSE>(new HeadingConstraint(heading_meas_[i], 100.0));
+                problem.AddResidualBlock(yaw_cost, nullptr, para_Pose[i]);
+                //++c;
+            }
         }
+        //std::cout << "add heading constraint " << c << "\n";
     }
 
     ROS_DEBUG("visual measurement count: %d", f_m_cnt);
@@ -1361,6 +1372,7 @@ void Estimator::slideWindow()
             for (int i = 0; i < WINDOW_SIZE; i++)
             {
                 Headers[i] = Headers[i + 1];
+                heading_meas_[i] = heading_meas_[i+1];
                 Rs[i].swap(Rs[i + 1]);
                 Ps[i].swap(Ps[i + 1]);
                 if(USE_IMU)
@@ -1377,6 +1389,7 @@ void Estimator::slideWindow()
                 }
             }
             Headers[WINDOW_SIZE] = Headers[WINDOW_SIZE - 1];
+            heading_meas_[WINDOW_SIZE] = heading_meas_[WINDOW_SIZE-1];
             Ps[WINDOW_SIZE] = Ps[WINDOW_SIZE - 1];
             Rs[WINDOW_SIZE] = Rs[WINDOW_SIZE - 1];
 
@@ -1409,6 +1422,7 @@ void Estimator::slideWindow()
         if (frame_count == WINDOW_SIZE)
         {
             Headers[frame_count - 1] = Headers[frame_count];
+            heading_meas_[frame_count-1] = heading_meas_[frame_count];
             Ps[frame_count - 1] = Ps[frame_count];
             Rs[frame_count - 1] = Rs[frame_count];
 
