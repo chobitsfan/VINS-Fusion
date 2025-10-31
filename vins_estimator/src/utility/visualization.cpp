@@ -49,7 +49,9 @@ void registerPub(Estimator &estimator)
     estimator.ros_node = rclcpp::Node::make_shared("vins");
     estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", rclcpp::QoS(1).best_effort().durability_volatile());
     estimator.ft_pub = estimator.ros_node->create_publisher<sensor_msgs::msg::PointCloud>("features", rclcpp::QoS(1).best_effort().durability_volatile());
+#ifdef PUB_TRACK
     estimator.track_pub = estimator.ros_node->create_publisher<visualization_msgs::msg::Marker>("track", rclcpp::QoS(1).best_effort().durability_volatile());
+#endif
     estimator.tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(estimator.ros_node);
 
     tf_to_pub.header.frame_id = "map";
@@ -65,11 +67,13 @@ void registerPub(Estimator &estimator)
 
 void pubOdometry(const Estimator &estimator, const double feature_ts)
 {
+#ifdef PUB_TRACK
     static unsigned int path_c = 0;
     static unsigned int path_i = 0;
     static double prv_px = 0;
     static double prv_py = 0;
     static double prv_pz = 0;
+#endif
     std_msgs::msg::Header header;
     //struct timespec tp;
     //clock_gettime(CLOCK_MONOTONIC, &tp);
@@ -120,6 +124,7 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         odo_msg.twist.twist.linear.z = vz;
         estimator.odo_pub->publish(odo_msg);
 
+#if PUB_TRACK
         path_c++;
         if (path_c > 5) {
             path_c = 0;
@@ -150,6 +155,7 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
             prv_py = py;
             prv_pz = pz;
         }
+#endif
 #ifdef LOG_FEATURES
         fprintf(my_log_file2, "%d,%f,%f,%f\n", my_log_num, px, py, pz);
 #endif

@@ -177,6 +177,8 @@ class Estimator
     std::shared_ptr<rclcpp::Node> ros_node;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odo_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr ft_pub;
+#ifdef PUB_TRACK
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr track_pub;
+#endif
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_br;
 };
