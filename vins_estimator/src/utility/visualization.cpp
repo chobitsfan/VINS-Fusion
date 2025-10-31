@@ -24,6 +24,8 @@
 #include "sensor_msgs/msg/point_cloud.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
+#define MAX_TF_QUEUE_SIZE 40
+
 #ifdef LOG_FEATURES
 extern FILE* my_log_file2;
 extern int my_log_num;
@@ -107,6 +109,7 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         tf_to_pub.transform.rotation.w = qw;
         {
             std::lock_guard<std::mutex> lock(tf_mtx);
+            if (tf_queue.size() >= MAX_TF_QUEUE_SIZE) tf_queue.pop_front();
             tf_queue.push_back(tf_to_pub);
             tf_cv.notify_one(); // wake up worker
         } // Hold locks for the shortest time possible
