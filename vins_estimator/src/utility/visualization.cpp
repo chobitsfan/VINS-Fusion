@@ -24,23 +24,33 @@
 #include "sensor_msgs/msg/point_cloud.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
+#define MAX_TF_QUEUE_SIZE 40
+
 #ifdef LOG_FEATURES
 extern FILE* my_log_file2;
 extern int my_log_num;
 #endif
 
 extern bool gogogo;
-static geometry_msgs::msg::TransformStamped tf_to_pub;
 std::mutex tf_mtx;
 std::condition_variable tf_cv;
-bool tf_ready = false;
+std::deque<geometry_msgs::msg::TransformStamped> tf_queue;
 
 void pub_result_func(const Estimator* estimator) {
-    std::unique_lock<std::mutex> lock(tf_mtx);
-    while (gogogo) {
-        tf_cv.wait(lock, [] { return tf_ready; }); // Wait until "tf_ready" becomes true
-        tf_ready = false;
-        estimator->tf_br->sendTransform(tf_to_pub);
+    while (true) {
+        std::deque<geometry_msgs::msg::TransformStamped> local_queue;
+        {
+            std::unique_lock<std::mutex> lock(tf_mtx);
+            tf_cv.wait(lock, [] { return !tf_queue.empty() || !gogogo; }); // Wait until queue has items OR should exit
+            if (!gogogo) return;
+            // Grab ALL pending work
+            local_queue.swap(tf_queue);
+        } // Automatic unlock
+        // Process all items without holding lock
+        while (!local_queue.empty()) {
+            estimator->tf_br->sendTransform(local_queue.front()); // sendTransform may take some time
+            local_queue.pop_front();
+        }
     }
 }
 
@@ -49,27 +59,21 @@ void registerPub(Estimator &estimator)
     estimator.ros_node = rclcpp::Node::make_shared("vins");
     estimator.odo_pub = estimator.ros_node->create_publisher<nav_msgs::msg::Odometry>("odometry", rclcpp::QoS(1).best_effort().durability_volatile());
     estimator.ft_pub = estimator.ros_node->create_publisher<sensor_msgs::msg::PointCloud>("features", rclcpp::QoS(1).best_effort().durability_volatile());
+#ifdef PUB_TRACK
     estimator.track_pub = estimator.ros_node->create_publisher<visualization_msgs::msg::Marker>("track", rclcpp::QoS(1).best_effort().durability_volatile());
+#endif
     estimator.tf_br = std::make_unique<tf2_ros::TransformBroadcaster>(estimator.ros_node);
-
-    tf_to_pub.header.frame_id = "map";
-    tf_to_pub.child_frame_id = "body";
-    tf_to_pub.transform.translation.x = 0;
-    tf_to_pub.transform.translation.y = 0;
-    tf_to_pub.transform.translation.z = 0;
-    tf_to_pub.transform.rotation.x = 0;
-    tf_to_pub.transform.rotation.y = 0;
-    tf_to_pub.transform.rotation.z = 0;
-    tf_to_pub.transform.rotation.w = 1;
 }
 
 void pubOdometry(const Estimator &estimator, const double feature_ts)
 {
+#ifdef PUB_TRACK
     static unsigned int path_c = 0;
     static unsigned int path_i = 0;
     static double prv_px = 0;
     static double prv_py = 0;
     static double prv_pz = 0;
+#endif
     std_msgs::msg::Header header;
     //struct timespec tp;
     //clock_gettime(CLOCK_MONOTONIC, &tp);
@@ -93,7 +97,9 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         double qz = q.z();
         double qw = q.w();
 
+        geometry_msgs::msg::TransformStamped tf_to_pub;
         tf_to_pub.header = header;
+        tf_to_pub.child_frame_id = "body";
         tf_to_pub.transform.translation.x = px;
         tf_to_pub.transform.translation.y = py;
         tf_to_pub.transform.translation.z = pz;
@@ -101,9 +107,12 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         tf_to_pub.transform.rotation.y = qy;
         tf_to_pub.transform.rotation.z = qz;
         tf_to_pub.transform.rotation.w = qw;
-        std::lock_guard<std::mutex> lock(tf_mtx);
-        tf_ready = true;
-        tf_cv.notify_one(); // wake up worker
+        {
+            std::lock_guard<std::mutex> lock(tf_mtx);
+            if (tf_queue.size() >= MAX_TF_QUEUE_SIZE) tf_queue.pop_front();
+            tf_queue.push_back(tf_to_pub);
+            tf_cv.notify_one(); // wake up worker
+        } // Hold locks for the shortest time possible
 
         nav_msgs::msg::Odometry odo_msg;
         odo_msg.header = header;
@@ -120,6 +129,7 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
         odo_msg.twist.twist.linear.z = vz;
         estimator.odo_pub->publish(odo_msg);
 
+#if PUB_TRACK
         path_c++;
         if (path_c > 5) {
             path_c = 0;
@@ -150,6 +160,7 @@ void pubOdometry(const Estimator &estimator, const double feature_ts)
             prv_py = py;
             prv_pz = pz;
         }
+#endif
 #ifdef LOG_FEATURES
         fprintf(my_log_file2, "%d,%f,%f,%f\n", my_log_num, px, py, pz);
 #endif
