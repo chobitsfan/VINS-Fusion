@@ -45,6 +45,8 @@ add_executable(vins_fusion
     src/initial/initial_aligment.cpp
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
+    src/featureTracker/feature_tracker.cpp
+    src/featureTracker/pinhole_camera.cpp
 )
 ament_target_dependencies(vins_fusion rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs tf2 tf2_ros visualization_msgs)
 target_link_libraries(vins_fusion ${OpenCV_LIBS} ${CERES_LIBRARIES})
