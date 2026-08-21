@@ -437,7 +437,13 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     ROS_DEBUG("number of feature: %d", f_manager.getFeatureCount());
     Headers[frame_count] = header;
 
-    if (fabs(header - heading_time_) < 0.07) heading_meas_[frame_count] = heading_yaw_; else heading_meas_[frame_count] = 0;
+    if (fabs(header - heading_time_) < 0.07) {
+        heading_meas_[frame_count] = heading_yaw_;
+        //printf("ok ");
+    } else {
+        heading_meas_[frame_count] = 0;
+        //printf("no ");
+    }
 
     ImageFrame imageframe(image, header);
     imageframe.pre_integration = tmp_pre_integration;

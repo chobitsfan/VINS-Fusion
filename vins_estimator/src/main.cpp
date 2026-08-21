@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 #endif
 
     RCLCPP_WARN(estimator.ros_node->get_logger(), "waiting for image and imu...");
-#if 1
+#if 0
     auto vert_hori_line_sub = estimator.ros_node->create_subscription<geometry_msgs::msg::PolygonStamped>("vert_hori_line", 1,
         [&estimator](const geometry_msgs::msg::PolygonStamped::SharedPtr msg) {
             auto hori_p = msg->polygon.points[2];
